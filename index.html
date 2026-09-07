@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Neon Blue Heart Particle - Frontiend Exact</title>
+  <title>Blue Heart Particle Glow - Lightweight & Smooth</title>
   <style>
     * {
       box-sizing: border-box;
@@ -16,7 +16,7 @@
     body, html {
       width: 100%;
       height: 100%;
-      background: #000000;
+      background: #000;
       overflow: hidden;
     }
 
@@ -34,7 +34,7 @@
 
   <script>
     /* ========================================================
-       1. SYNTH AUDIO ENGINE (SUB-BASS MEWAH & RISER)
+       1. SYNTH AUDIO (SUB-BASS & WOOSH PUTARAN)
        ======================================================== */
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
@@ -44,147 +44,85 @@
       if (audioCtx.state === 'suspended') audioCtx.resume();
     }
 
-    // Aktifkan audio context pada ketukan pertama
     ['touchstart', 'mousedown', 'pointerdown'].forEach(ev => {
       window.addEventListener(ev, ensureAudio, { once: true, passive: true });
     });
 
-    function makeDistortionCurve(amount = 25) {
-      const k = amount;
-      const n = 44100;
-      const curve = new Float32Array(n);
-      const deg = Math.PI / 180;
-      for (let i = 0; i < n; ++i) {
-        let x = (i * 2) / n - 1;
-        curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
-      }
-      return curve;
-    }
-
-    // Suara deep vacuum & sub-drone saat partikel berputar & memadat
+    // Suara whoosh berkumpul/berputar
     function playGatherSound() {
       if (!audioCtx) return;
       const t = audioCtx.currentTime;
 
-      // Layer 1: Sub-bass swell rendah
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       const filter = audioCtx.createBiquadFilter();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(32, t);
-      osc.frequency.exponentialRampToValueAtTime(85, t + 1.4);
+      osc.frequency.setValueAtTime(35, t);
+      osc.frequency.exponentialRampToValueAtTime(80, t + 1.2);
 
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(60, t);
-      filter.frequency.linearRampToValueAtTime(260, t + 1.2);
+      filter.frequency.setValueAtTime(70, t);
+      filter.frequency.linearRampToValueAtTime(240, t + 1.2);
 
       gain.gain.setValueAtTime(0.001, t);
-      gain.gain.linearRampToValueAtTime(0.5, t + 0.8);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
+      gain.gain.linearRampToValueAtTime(0.45, t + 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
 
       osc.connect(filter);
       filter.connect(gain);
       gain.connect(audioCtx.destination);
 
       osc.start(t);
-      osc.stop(t + 1.6);
+      osc.stop(t + 1.4);
+    }
 
-      // Layer 2: Texture hisapan udara halus
-      const bufSize = audioCtx.sampleRate * 1.2;
+    // Suara ledakan sub-bass bioskop saat diketuk
+    function playHeavyBassExplosion() {
+      ensureAudio();
+      const t = audioCtx.currentTime;
+
+      const subOsc = audioCtx.createOscillator();
+      const subGain = audioCtx.createGain();
+      subOsc.type = 'sine';
+      subOsc.frequency.setValueAtTime(160, t);
+      subOsc.frequency.exponentialRampToValueAtTime(24, t + 1.1);
+
+      subGain.gain.setValueAtTime(1.0, t);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+
+      subOsc.connect(subGain);
+      subGain.connect(audioCtx.destination);
+      subOsc.start(t);
+      subOsc.stop(t + 1.2);
+
+      // Shimmer sparkle halus
+      const bufSize = audioCtx.sampleRate * 0.5;
       const buffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
       for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
 
       const noise = audioCtx.createBufferSource();
       noise.buffer = buffer;
-
-      const nFilter = audioCtx.createBiquadFilter();
-      nFilter.type = 'bandpass';
-      nFilter.frequency.setValueAtTime(180, t);
-      nFilter.frequency.exponentialRampToValueAtTime(650, t + 1.2);
-      nFilter.Q.setValueAtTime(4, t);
-
-      const nGain = audioCtx.createGain();
-      nGain.gain.setValueAtTime(0.001, t);
-      nGain.gain.linearRampToValueAtTime(0.2, t + 0.7);
-      nGain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
-
-      noise.connect(nFilter);
-      nFilter.connect(nGain);
-      nGain.connect(audioCtx.destination);
-
-      noise.start(t);
-      noise.stop(t + 1.5);
-    }
-
-    // Suara ledakan sub-bass bioskop (808 drop empuk & padat)
-    function playHeavyBassExplosion() {
-      ensureAudio();
-      const t = audioCtx.currentTime;
-
-      // 1. Sub-bass Drop (180 Hz -> 20 Hz)
-      const subOsc = audioCtx.createOscillator();
-      const subGain = audioCtx.createGain();
-      subOsc.type = 'sine';
-      subOsc.frequency.setValueAtTime(180, t);
-      subOsc.frequency.exponentialRampToValueAtTime(20, t + 1.3);
-
-      subGain.gain.setValueAtTime(1.0, t);
-      subGain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
-
-      subOsc.connect(subGain);
-      subGain.connect(audioCtx.destination);
-      subOsc.start(t);
-      subOsc.stop(t + 1.4);
-
-      // 2. Analog Overdrive Saturation Punch
-      const punchOsc = audioCtx.createOscillator();
-      const punchGain = audioCtx.createGain();
-      const dist = audioCtx.createWaveShaper();
-      dist.curve = makeDistortionCurve(22);
-
-      punchOsc.type = 'triangle';
-      punchOsc.frequency.setValueAtTime(110, t);
-      punchOsc.frequency.exponentialRampToValueAtTime(28, t + 0.6);
-
-      punchGain.gain.setValueAtTime(0.85, t);
-      punchGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-
-      punchOsc.connect(dist);
-      dist.connect(punchGain);
-      punchGain.connect(audioCtx.destination);
-      punchOsc.start(t);
-      punchOsc.stop(t + 0.6);
-
-      // 3. Shimmer Air Blast (Sparkle)
-      const bufferSize = audioCtx.sampleRate * 0.8;
-      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-      const noise = audioCtx.createBufferSource();
-      noise.buffer = buffer;
-
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1500, t);
-      filter.Q.setValueAtTime(2.2, t);
+      filter.frequency.setValueAtTime(1400, t);
+      filter.Q.setValueAtTime(2.5, t);
 
       const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0.45, t);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+      noiseGain.gain.setValueAtTime(0.35, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
 
       noise.connect(filter);
       filter.connect(noiseGain);
       noiseGain.connect(audioCtx.destination);
 
       noise.start(t);
-      noise.stop(t + 0.8);
+      noise.stop(t + 0.5);
     }
 
     /* ========================================================
-       2. HEART & BASE VORTEX SIMULATION
+       2. PARTICLE SIMULATION (RINGAN & OPTIMAL)
        ======================================================== */
     const canvas = document.getElementById('heartCanvas');
     const ctx = canvas.getContext('2d');
@@ -196,127 +134,109 @@
       height = canvas.height = window.innerHeight;
     });
 
-    // Palet warna biru elektrik identik video @frontiend
     const BLUE_SHADES = [
-      '#ffffff', // Core sparkle
-      '#e0f2fe', // Sky 100
-      '#38b2f6', // Blue 400
-      '#06b6f4', // Cyan 500
-      '#93c5fd', // Blue 300
-      '#2563eb', // Blue 600
-      '#bfdbfe', // Blue 200
-      '#1d4ed8'  // Blue 700
+      '#ffffff',
+      '#bae6fd',
+      '#38bdf8',
+      '#0ea5e9',
+      '#2563eb',
+      '#1d4ed8'
     ];
 
-    // Persamaan matematis kontur hati
     function getHeartPoint(t, scale = 14) {
       const x = 16 * Math.pow(Math.sin(t), 3);
       const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
       return { x: x * scale, y: y * scale };
     }
 
-    const vortexRingParticles = [];
-    const upwardStreamParticles = [];
+    // Hitungan partikel ideal agar rapat namun anti-lag
+    const HEART_COUNT = 900; 
+    const VORTEX_COUNT = 65; // Cukup 65 partikel cincin agar tidak menumpuk kotor
+    const STREAM_COUNT = 40; // Aliran partikel melayang naik
+
     const heartParticles = [];
+    const vortexParticles = [];
+    const streamParticles = [];
     const burstParticles = [];
 
-    const HEART_COUNT = 2800; // Kerapatan padat sesuai video
-    const VORTEX_COUNT = 380; // Pusaran api dasar
-    const STREAM_COUNT = 160; // Aliran partikel dari pusaran bawah ke hati
-
     class Particle {
-      constructor(type = 'heart') {
+      constructor(type) {
         this.type = type;
         this.color = BLUE_SHADES[Math.floor(Math.random() * BLUE_SHADES.length)];
-        this.size = Math.random() * 2.1 + 0.7;
+        this.size = Math.random() * 2.0 + 0.8;
 
         if (type === 'vortex') {
-          // Pusaran spiral melingkar di bawah
           this.angle = Math.random() * Math.PI * 2;
-          this.radius = Math.random() * 110 + 15;
-          this.speed = (Math.random() * 0.06 + 0.035);
-          this.yOffset = (Math.random() - 0.5) * 22;
-          this.size = Math.random() * 2.8 + 1.1;
+          this.radius = Math.random() * 60 + 15;
+          this.speed = Math.random() * 0.04 + 0.02;
+          this.yOffset = (Math.random() - 0.5) * 8;
         } else if (type === 'stream') {
-          // Partikel yang ditarik dari bawah naik ke ujung hati
           this.resetStream();
         } else if (type === 'heart') {
-          this.initHeartPosition();
+          this.t = Math.random() * Math.PI * 2;
+          const isEdge = Math.random() > 0.3;
+          const s = isEdge ? 1 : Math.sqrt(Math.random());
+          const pt = getHeartPoint(this.t, 14 * s);
+          this.targetX = pt.x;
+          this.targetY = pt.y;
+          this.x = width / 2;
+          this.y = height * 0.72;
           this.speed = Math.random() * 0.05 + 0.02;
           this.orbitAngle = Math.random() * Math.PI * 2;
-          this.orbitSpeed = (Math.random() - 0.5) * 0.04;
-          this.orbitRadius = Math.random() * 8;
+          this.orbitSpeed = (Math.random() - 0.5) * 0.03;
+          this.orbitRadius = Math.random() * 6;
           this.scatterX = 0;
           this.scatterY = 0;
         } else if (type === 'burst') {
           this.x = width / 2;
-          this.y = height / 2 - 25;
+          this.y = height / 2 - 20;
           const angle = Math.random() * Math.PI * 2;
-          const force = Math.random() * 20 + 5;
+          const force = Math.random() * 18 + 4;
           this.vx = Math.cos(angle) * force;
           this.vy = Math.sin(angle) * force;
-          this.size = Math.random() * 3.8 + 1.2;
+          this.size = Math.random() * 3.2 + 1.0;
           this.decay = 0.93;
         }
       }
 
       resetStream() {
-        this.angle = Math.random() * Math.PI * 2;
-        this.radius = Math.random() * 70;
-        this.x = width / 2 + Math.cos(this.angle) * this.radius;
-        this.y = height * 0.74;
-        this.vx = (Math.random() - 0.5) * 1.5;
-        this.vy = -Math.random() * 2.6 - 1.2;
-        this.life = 0;
-        this.maxLife = Math.random() * 70 + 35;
-      }
-
-      initHeartPosition() {
-        this.t = Math.random() * Math.PI * 2;
-        // 65% di tepi agar garis hati tajam, 35% di dalam volume hati
-        const isBorder = Math.random() > 0.35;
-        const scaleFactor = isBorder ? (1 + (Math.random() - 0.5) * 0.08) : Math.sqrt(Math.random()) * 0.95;
-        const pt = getHeartPoint(this.t, 14.5 * scaleFactor);
-        this.targetX = pt.x;
-        this.targetY = pt.y;
         this.x = width / 2 + (Math.random() - 0.5) * 40;
-        this.y = height * 0.74;
+        this.y = height * 0.72;
+        this.vx = (Math.random() - 0.5) * 0.8;
+        this.vy = -Math.random() * 2.2 - 0.8;
+        this.life = 0;
+        this.maxLife = Math.random() * 50 + 30;
       }
 
-      update(beatScale = 1) {
+      update(beat = 1) {
         if (this.type === 'vortex') {
           this.angle += this.speed;
           const cx = width / 2;
-          const cy = height * 0.74;
-          const rx = this.radius * 1.35;
-          const ry = this.radius * 0.34;
-          this.x = cx + Math.cos(this.angle) * rx;
-          this.y = cy + Math.sin(this.angle) * ry + this.yOffset;
+          const cy = height * 0.72;
+          // Cincin elips horizontal tipis
+          this.x = cx + Math.cos(this.angle) * (this.radius * 1.5);
+          this.y = cy + Math.sin(this.angle) * (this.radius * 0.35) + this.yOffset;
         } else if (this.type === 'stream') {
           this.life++;
           this.x += this.vx;
           this.y += this.vy;
-          // Melengkung ditarik menuju ujung bawah hati
-          const targetTipX = width / 2;
-          const targetTipY = height / 2 + 130;
-          this.vx += (targetTipX - this.x) * 0.015;
-          this.vy += (targetTipY - this.y) * 0.012;
-          if (this.life > this.maxLife) this.resetStream();
+          const targetY = height / 2 + 120;
+          this.vx += ((width / 2) - this.x) * 0.02;
+          if (this.life > this.maxLife || this.y < targetY) this.resetStream();
         } else if (this.type === 'heart') {
           this.orbitAngle += this.orbitSpeed;
           const ox = Math.cos(this.orbitAngle) * this.orbitRadius;
           const oy = Math.sin(this.orbitAngle) * this.orbitRadius;
 
           const cx = width / 2;
-          const cy = height / 2 - 25;
+          const cy = height / 2 - 20;
 
-          const tx = cx + (this.targetX * beatScale) + ox + this.scatterX;
-          const ty = cy + (this.targetY * beatScale) + oy + this.scatterY;
+          const tx = cx + (this.targetX * beat) + ox + this.scatterX;
+          const ty = cy + (this.targetY * beat) + oy + this.scatterY;
 
           this.x += (tx - this.x) * this.speed;
           this.y += (ty - this.y) * this.speed;
 
-          // Redam hentakan hamburan ledakan
           this.scatterX *= 0.91;
           this.scatterY *= 0.91;
         } else if (this.type === 'burst') {
@@ -324,33 +244,25 @@
           this.y += this.vy;
           this.vx *= this.decay;
           this.vy *= this.decay;
-          this.size *= 0.96;
+          this.size *= 0.95;
         }
       }
 
       draw(c) {
-        c.save();
         c.fillStyle = this.color;
-        c.shadowColor = this.color;
-        c.shadowBlur = 10;
         c.beginPath();
         c.arc(this.x, this.y, Math.max(0.1, this.size), 0, Math.PI * 2);
         c.fill();
-        c.restore();
       }
     }
 
-    // Inisialisasi partikel pusaran bawah
-    for (let i = 0; i < VORTEX_COUNT; i++) vortexRingParticles.push(new Particle('vortex'));
-
-    // Inisialisasi partikel aliran penghubung
-    for (let i = 0; i < STREAM_COUNT; i++) upwardStreamParticles.push(new Particle('stream'));
-
-    // Inisialisasi partikel hati
+    // Buat partikel
+    for (let i = 0; i < VORTEX_COUNT; i++) vortexParticles.push(new Particle('vortex'));
+    for (let i = 0; i < STREAM_COUNT; i++) streamParticles.push(new Particle('stream'));
     for (let i = 0; i < HEART_COUNT; i++) heartParticles.push(new Particle('heart'));
 
     function spawnBurst(cx, cy) {
-      for (let i = 0; i < 220; i++) {
+      for (let i = 0; i < 180; i++) {
         const p = new Particle('burst');
         p.x = cx;
         p.y = cy;
@@ -359,56 +271,53 @@
     }
 
     /* ========================================================
-       3. ANIMASI LOOP
+       3. LOOP RENDER (60 FPS RINGAN TANPA SHADOWBLUR)
        ======================================================== */
     let time = 0;
 
     function render() {
-      time += 0.045;
+      time += 0.04;
+
+      // Jejak fade halus
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
       ctx.fillRect(0, 0, width, height);
 
-      // Mode pendaran neon (Additive Screen Bloom)
+      // Glow blending natural tanpa komputasi berat
       ctx.globalCompositeOperation = 'lighter';
 
-      // Pedestal Cahaya Biru Menyala di Bawah
-      const vcx = width / 2;
-      const vcy = height * 0.74;
-
-      const baseGlow = ctx.createRadialGradient(vcx, vcy, 8, vcx, vcy, 175);
-      baseGlow.addColorStop(0, 'rgba(255, 255, 255, 0.95)'); // Inti putih terang
-      baseGlow.addColorStop(0.15, 'rgba(56, 178, 246, 0.85)'); // Cyan terang
-      baseGlow.addColorStop(0.45, 'rgba(37, 99, 235, 0.35)');  // Electric blue
-      baseGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.fillStyle = baseGlow;
+      // Cahaya lembut di dasar (pedestal ring)
+      const cx = width / 2;
+      const cy = height * 0.72;
+      const grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 110);
+      grad.addColorStop(0, 'rgba(56, 189, 248, 0.65)');
+      grad.addColorStop(0.3, 'rgba(37, 99, 235, 0.25)');
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.ellipse(vcx, vcy, 180, 48, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy, 120, 28, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Update partikel pusaran spiral bawah
-      vortexRingParticles.forEach(p => {
-        p.update();
-        p.draw(ctx);
-      });
+      // Render pusaran bawah
+      for (let i = 0; i < vortexParticles.length; i++) {
+        vortexParticles[i].update();
+        vortexParticles[i].draw(ctx);
+      }
 
-      // Update partikel aliran naik dari bawah ke atas
-      upwardStreamParticles.forEach(p => {
-        p.update();
-        p.draw(ctx);
-      });
+      // Render partikel naik
+      for (let i = 0; i < streamParticles.length; i++) {
+        streamParticles[i].update();
+        streamParticles[i].draw(ctx);
+      }
 
-      // Detak denyut lembut pada hati
-      const beat = 1 + Math.sin(time * 2.8) * 0.032;
+      // Render partikel hati dengan detak halus
+      const beat = 1 + Math.sin(time * 2.6) * 0.03;
+      for (let i = 0; i < heartParticles.length; i++) {
+        heartParticles[i].update(beat);
+        heartParticles[i].draw(ctx);
+      }
 
-      // Update dan gambar 2.800+ partikel hati
-      heartParticles.forEach(p => {
-        p.update(beat);
-        p.draw(ctx);
-      });
-
-      // Update ledakan partikel saat diketuk
+      // Render ledakan saat diklik
       for (let i = burstParticles.length - 1; i >= 0; i--) {
         const p = burstParticles[i];
         p.update();
@@ -420,7 +329,7 @@
     }
     render();
 
-    // Suara deburan / riser berputar berkala
+    // Suara whoosh berulang saat partikel memadat
     setInterval(() => {
       if (audioCtx) playGatherSound();
     }, 4200);
@@ -428,23 +337,22 @@
     /* ========================================================
        4. INTERAKSI KETUK
        ======================================================== */
-    window.addEventListener('pointerdown', (e) => {
-      // Suara dentuman sub-bass instan tanpa delay
+    window.addEventListener('pointerdown', () => {
       playHeavyBassExplosion();
 
       const cx = width / 2;
-      const cy = height / 2 - 25;
+      const cy = height / 2 - 20;
 
-      // Hembusan ledakan keluar
       spawnBurst(cx, cy);
 
-      // Partikel hati terpental luas lalu ditarik kembali membentuk hati
-      heartParticles.forEach(p => {
-        const angle = Math.atan2(p.y - cy, p.x - cx) + (Math.random() - 0.5) * 0.5;
-        const force = Math.random() * 280 + 130;
+      // Partikel hati terpental rapi keluar lalu menyatu kembali
+      for (let i = 0; i < heartParticles.length; i++) {
+        const p = heartParticles[i];
+        const angle = Math.atan2(p.y - cy, p.x - cx) + (Math.random() - 0.5) * 0.4;
+        const force = Math.random() * 220 + 100;
         p.scatterX = Math.cos(angle) * force;
         p.scatterY = Math.sin(angle) * force;
-      });
+      }
     });
   </script>
 </body>
