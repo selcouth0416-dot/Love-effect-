@@ -1,366 +1,443 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Volumetric Blue Heart Glow</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-    body, html {
-      width: 100%;
-      height: 100%;
-      background: #000;
-      overflow: hidden;
-    }
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heart Particle Burst</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; overflow: hidden;
+    background: #000; height: 100%; width: 100%;
+  }
+  canvas { display: block; }
+  #startOverlay {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    color: #bfdbfe; font-family: sans-serif; font-size: 14px;
+    background: rgba(30,58,138,0.35); padding: 10px 18px; border-radius: 30px;
+    border: 1px solid rgba(147,197,253,0.4);
+    cursor: pointer; z-index: 10; transition: opacity 0.4s;
+    backdrop-filter: blur(4px);
+  }
+</style>
 </head>
 <body>
+<canvas id="canvas"></canvas>
+<div id="startOverlay">🔊 Tap untuk mengaktifkan suara</div>
 
-  <canvas id="heartCanvas"></canvas>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let width, height;
 
-  <script>
-    /* ========================================================
-       1. SYNTH AUDIO: SUB-BASS BUBBLE & EXPLOSION
-       ======================================================== */
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    let audioCtx = null;
+const BLUE_SHADES = ["#3b82f6", "#60a5fa", "#93c5fd", "#2563eb", "#bfdbfe", "#1d4ed8"];
+function randomColor(){ return BLUE_SHADES[Math.floor(Math.random()*BLUE_SHADES.length)]; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 
-    function ensureAudio() {
-      if (!audioCtx) audioCtx = new AudioCtx();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+let heartCenterX, heartCenterY, heartScale, poolX, poolY;
+function setupHeartPosition(){
+  heartCenterX = width/2;
+  heartCenterY = height*0.4;
+  heartScale = Math.min(width,height)*0.017;
+  poolX = width/2;
+  poolY = height*0.74;
+}
+function resize(){
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  setupHeartPosition();
+}
+window.addEventListener('resize', resize);
+
+// find the vertical extremes of the heart curve once, used to bias timing per particle
+let RAW_MIN_HY = Infinity, RAW_MAX_HY = -Infinity;
+for (let i=0;i<=360;i++){
+  const t=(i/360)*Math.PI*2;
+  const hy=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
+  if(hy<RAW_MIN_HY) RAW_MIN_HY=hy;
+  if(hy>RAW_MAX_HY) RAW_MAX_HY=hy;
+}
+
+const HEART_COUNT = 220;
+const STREAM_COUNT = 30;
+const FLOAT_COUNT = 70;
+const heartParticles = [];
+const streamParticles = [];
+const floatParticles = [];
+
+class HeartParticle {
+  constructor(){ this.init(true); }
+  init(isFirstSpawn){
+    const t = Math.random()*Math.PI*2;
+    const s = Math.sqrt(Math.random());
+    this.hx = 16*Math.pow(Math.sin(t),3);
+    this.hy = -(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
+    this.s = s;
+    const actualHy = this.hy*this.s;
+    this.v = clamp((actualHy-RAW_MIN_HY)/(RAW_MAX_HY-RAW_MIN_HY),0,1); // 0=top 1=bottom
+
+    this.color = randomColor();
+    this.size = Math.random()*2+0.8;
+
+    this.x = poolX + (Math.random()-0.5)*20;
+    this.y = poolY + (Math.random()-0.5)*8;
+    this.vortexAngle = Math.random()*Math.PI*2;
+    this.vortexRadius = 20+Math.random()*30;
+
+    this.state = 'settle';
+    this.stateTimer = isFirstSpawn ? -Math.floor(Math.random()*220) : 0;
+    this.settleDuration = Math.floor((70+Math.random()*30)*(0.75+this.v*0.7));   // bottom settles slower
+    this.holdDuration = Math.floor((90+Math.random()*40)*(1-this.v*0.55));       // bottom holds shorter
+    this.releaseDuration = Math.floor((70+Math.random()*40)*(0.55+this.v*1.15)); // bottom stays released longer
+    this.trail = [];
+    this.alpha = 0;
+  }
+
+  update(){
+    const tx = this.hx*this.s*heartScale;
+    const ty = this.hy*this.s*heartScale;
+
+    this.stateTimer++;
+    if (this.stateTimer < 0){
+      this.vortexAngle += 0.05;
+      this.x = poolX + Math.cos(this.vortexAngle)*this.vortexRadius;
+      this.y = poolY + Math.sin(this.vortexAngle)*this.vortexRadius*0.3;
+      this.alpha = 0.15;
+      return;
     }
 
-    ['touchstart', 'mousedown', 'pointerdown'].forEach(ev => {
-      window.addEventListener(ev, ensureAudio, { once: true, passive: true });
-    });
+    if (this.state === 'settle'){
+      const p = Math.min(this.stateTimer/this.settleDuration,1);
+      const ease = 1-Math.pow(1-p,3);
+      this.vortexAngle += 0.18*(1-ease)+0.02;
+      const swirl = (1-ease)*this.vortexRadius*0.6;
+      const baseX = poolX + ((heartCenterX+tx)-poolX)*ease;
+      const baseY = poolY + ((heartCenterY+ty)-poolY)*ease;
+      this.x = baseX + Math.cos(this.vortexAngle)*swirl;
+      this.y = baseY + Math.sin(this.vortexAngle)*swirl*0.4;
+      this.alpha = 0.2+ease*0.8;
+      if (p>=1){ this.state='hold'; this.stateTimer=0; }
 
-    function playSwirlSound() {
-      if (!audioCtx) return;
-      const t = audioCtx.currentTime;
-
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      const filter = audioCtx.createBiquadFilter();
-
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(36, t);
-      osc.frequency.exponentialRampToValueAtTime(105, t + 1.2);
-
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(70, t);
-      filter.frequency.exponentialRampToValueAtTime(300, t + 1.2);
-
-      gain.gain.setValueAtTime(0.001, t);
-      gain.gain.linearRampToValueAtTime(0.35, t + 0.6);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
-
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.start(t);
-      osc.stop(t + 1.4);
-    }
-
-    function playBassExplosion() {
-      ensureAudio();
-      const t = audioCtx.currentTime;
-
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(160, t);
-      osc.frequency.exponentialRampToValueAtTime(22, t + 1.2);
-
-      gain.gain.setValueAtTime(1.0, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(t);
-      osc.stop(t + 1.3);
-
-      const bufSize = audioCtx.sampleRate * 0.5;
-      const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
-
-      const noise = audioCtx.createBufferSource();
-      noise.buffer = buf;
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1400, t);
-      filter.Q.setValueAtTime(2.5, t);
-
-      const nGain = audioCtx.createGain();
-      nGain.gain.setValueAtTime(0.35, t);
-      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-
-      noise.connect(filter);
-      filter.connect(nGain);
-      nGain.connect(audioCtx.destination);
-
-      noise.start(t);
-      noise.stop(t + 0.6);
-    }
-
-    /* ========================================================
-       2. VOLUMETRIC HEART PARTICLES ENGINE (PERSIS VIDEO)
-       ======================================================== */
-    const canvas = document.getElementById('heartCanvas');
-    const ctx = canvas.getContext('2d');
-    let width, height;
-
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
-
-    // Palet warna bintang debu biru pekat & cyan neon
-    const BLUE_PALETTE = [
-      '#ffffff',
-      '#bae6fd',
-      '#38bdf8',
-      '#0284c7',
-      '#2563eb',
-      '#1d4ed8',
-      '#1e3a8a'
-    ];
-
-    // Fungsi uji apakah titik (x, y) berada di dalam volume hati
-    function isInsideHeart(x, y) {
-      // Rumus implisit bentuk hati: (x^2 + y^2 - 1)^3 - x^2 * y^3 <= 0
-      const a = x * x + y * y - 1;
-      return (a * a * a - x * x * y * y * y) <= 0;
-    }
-
-    const HEART_COUNT = 2400; // Ribuan bintik padat mengisi volume hati
-    const heartParticles = [];
-
-    const HEART_SCALE = 180; // Ukuran hati responsif
-
-    for (let i = 0; i < HEART_COUNT; i++) {
-      let hx, hy;
-      // Sampling titik acak sampai berada di dalam atau di batas hati
-      while (true) {
-        hx = (Math.random() * 3.2 - 1.6);
-        hy = (Math.random() * 3.0 - 1.3);
-        if (isInsideHeart(hx, hy)) {
-          // Tambahkan sedikit noise di sekitar tepi agar natural
-          break;
-        }
+    } else if (this.state === 'hold'){
+      const tw = this.stateTimer*0.06;
+      this.x = heartCenterX+tx + Math.sin(tw+tx)*0.5;
+      this.y = heartCenterY+ty + Math.cos(tw+ty)*0.5;
+      this.alpha = 0.85+Math.sin(tw*1.3)*0.15;
+      if (this.stateTimer >= this.holdDuration){
+        this.state='release'; this.stateTimer=0;
+        const ang = Math.random()*Math.PI*2;
+        const force = 1.2+Math.random()*2.2;
+        this.vx = Math.cos(ang)*force;
+        this.vy = Math.sin(ang)*force*0.6+1.0;
+        this.trail = [[this.x,this.y]];
       }
 
-      // Konversi ke koordinat piksel (dibalik karena sumbu Y layar ke bawah)
-      const px = hx * HEART_SCALE;
-      const py = -hy * HEART_SCALE;
-
-      heartParticles.push({
-        baseX: px,
-        baseY: py,
-        x: px,
-        y: py,
-        size: Math.random() * 1.6 + 0.5,
-        color: BLUE_PALETTE[Math.floor(Math.random() * BLUE_PALETTE.length)],
-        alpha: Math.random() * 0.7 + 0.3,
-        // Getaran mikro agar debu bintang berkedip dan melayang hidup
-        driftAngle: Math.random() * Math.PI * 2,
-        driftSpeed: Math.random() * 0.04 + 0.02,
-        driftRadius: Math.random() * 4 + 1,
-        scatterX: 0,
-        scatterY: 0
-      });
+    } else if (this.state === 'release'){
+      this.trail.push([this.x,this.y]);
+      if (this.trail.length>7) this.trail.shift();
+      this.vx += (Math.random()-0.5)*0.5;
+      this.vy += (Math.random()-0.5)*0.3+0.06;
+      this.vx *= 0.97; this.vy *= 0.985;
+      this.x += this.vx; this.y += this.vy;
+      const p = Math.min(this.stateTimer/this.releaseDuration,1);
+      this.alpha = Math.max(0,1-p);
+      if (this.stateTimer >= this.releaseDuration) this.init(false);
     }
+  }
 
-    /* Partikel Gerak Melilit Halus dari Bawah */
-    const SWIRL_COUNT = 35;
-    const swirlParticles = [];
-
-    for (let i = 0; i < SWIRL_COUNT; i++) {
-      swirlParticles.push({
-        angle: Math.random() * Math.PI * 2,
-        yProgress: Math.random(),
-        speedY: Math.random() * 0.007 + 0.005,
-        rotSpeed: Math.random() * 0.06 + 0.04,
-        radius: Math.random() * 35 + 45,
-        color: Math.random() > 0.4 ? '#38bdf8' : '#ffffff',
-        size: Math.random() * 2.0 + 0.8,
-        prevX: 0,
-        prevY: 0
-      });
-    }
-
-    const burstParticles = [];
-
-    /* ========================================================
-       3. ANIMATION LOOP
-       ======================================================== */
-    let animTime = 0;
-
-    function render() {
-      animTime += 0.03;
-
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
-      ctx.fillRect(0, 0, width, height);
-
-      const cx = width / 2;
-      const cyHeart = height / 2 - 35;
-      const cyBase = height * 0.78;
-
-      ctx.globalCompositeOperation = 'lighter';
-
-      /* --- 1. Portal Cyan di Dasar --- */
-      const baseGlow = ctx.createRadialGradient(cx, cyBase, 2, cx, cyBase, 105);
-      baseGlow.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-      baseGlow.addColorStop(0.2, 'rgba(56, 189, 248, 0.75)');
-      baseGlow.addColorStop(0.55, 'rgba(37, 99, 235, 0.25)');
-      baseGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      ctx.fillStyle = baseGlow;
-      ctx.beginPath();
-      ctx.ellipse(cx, cyBase, 110, 22, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Cincin pendaran halus
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.ellipse(cx, cyBase, 102, 20, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      /* --- 2. Partikel Melilit Naik Halus --- */
-      for (let i = 0; i < swirlParticles.length; i++) {
-        const sp = swirlParticles[i];
-        sp.yProgress += sp.speedY;
-        sp.angle += sp.rotSpeed;
-
-        if (sp.yProgress > 1) {
-          sp.yProgress = 0;
-          sp.prevX = 0;
-          sp.prevY = 0;
-        }
-
-        const py = cyBase - sp.yProgress * (cyBase - (cyHeart - 110));
-        const r = sp.radius * (0.35 + Math.sin(sp.yProgress * Math.PI) * 1.5);
-        const px = cx + Math.cos(sp.angle) * r;
-
-        if (sp.prevX !== 0) {
-          ctx.strokeStyle = sp.color;
-          ctx.lineWidth = sp.size;
-          ctx.beginPath();
-          ctx.moveTo(sp.prevX, sp.prevY);
-          ctx.lineTo(px, py);
-          ctx.stroke();
-        }
-
-        sp.prevX = px;
-        sp.prevY = py;
-
-        ctx.fillStyle = '#ffffff';
+  draw(){
+    if (this.state==='release' && this.trail.length>1){
+      ctx.save();
+      ctx.globalCompositeOperation='lighter';
+      ctx.lineCap='round';
+      for (let i=1;i<this.trail.length;i++){
+        ctx.globalAlpha = (i/this.trail.length)*this.alpha*0.8;
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = this.size*0.8;
+        ctx.shadowColor = this.color; ctx.shadowBlur = 6;
         ctx.beginPath();
-        ctx.arc(px, py, sp.size * 0.8, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(this.trail[i-1][0], this.trail[i-1][1]);
+        ctx.lineTo(this.trail[i][0], this.trail[i][1]);
+        ctx.stroke();
       }
-
-      /* --- 3. Titik Bintang Volume Hati (Penuh & Rapat) --- */
-      const beat = 1 + Math.sin(animTime * 2.8) * 0.025;
-
-      for (let i = 0; i < heartParticles.length; i++) {
-        const hp = heartParticles[i];
-        hp.driftAngle += hp.driftSpeed;
-
-        const ox = Math.cos(hp.driftAngle) * hp.driftRadius;
-        const oy = Math.sin(hp.driftAngle) * hp.driftRadius;
-
-        const tx = cx + (hp.baseX * beat) + ox + hp.scatterX;
-        const ty = cyHeart + (hp.baseY * beat) + oy + hp.scatterY;
-
-        hp.x += (tx - hp.x) * 0.09;
-        hp.y += (ty - hp.y) * 0.09;
-
-        hp.scatterX *= 0.92;
-        hp.scatterY *= 0.92;
-
-        ctx.fillStyle = hp.color;
-        ctx.globalAlpha = hp.alpha;
-        ctx.beginPath();
-        ctx.arc(hp.x, hp.y, hp.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1.0;
-
-      /* --- 4. Partikel Ledakan saat Diketuk --- */
-      for (let i = burstParticles.length - 1; i >= 0; i--) {
-        const bp = burstParticles[i];
-        bp.x += bp.vx;
-        bp.y += bp.vy;
-        bp.vx *= 0.94;
-        bp.vy *= 0.94;
-        bp.size *= 0.95;
-
-        ctx.fillStyle = bp.color;
-        ctx.beginPath();
-        ctx.arc(bp.x, bp.y, bp.size, 0, Math.PI * 2);
-        ctx.fill();
-
-        if (bp.size < 0.2) burstParticles.splice(i, 1);
-      }
-
-      requestAnimationFrame(render);
+      ctx.restore();
     }
-    render();
+    ctx.save();
+    ctx.globalAlpha = Math.max(this.alpha,0);
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
 
-    setInterval(() => {
-      if (audioCtx) playSwirlSound();
-    }, 4500);
+class StreamParticle {
+  constructor(){ this.reset(); }
+  reset(){
+    this.x = poolX+(Math.random()-0.5)*30;
+    this.y = poolY;
+    this.vx = (Math.random()-0.5)*0.4;
+    this.vy = -(Math.random()*1.4+0.6);
+    this.size = Math.random()*1.3+0.4;
+    this.color = randomColor();
+    this.life = 0;
+    this.maxLife = Math.random()*60+40;
+  }
+  update(){
+    this.x += this.vx; this.y += this.vy;
+    this.life++;
+    this.alpha = 1-(this.life/this.maxLife);
+    if (this.life>=this.maxLife || this.y < heartCenterY) this.reset();
+  }
+  draw(){
+    ctx.save();
+    ctx.globalAlpha = Math.max(this.alpha,0)*0.7;
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color; ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
 
-    /* ========================================================
-       4. INTERAKSI KETUK (LEDAKAN PECAH & MENYATU LAGI)
-       ======================================================== */
-    window.addEventListener('pointerdown', () => {
-      playBassExplosion();
+class FloatParticle {
+  constructor(){ this.reset(true); }
+  reset(first){
+    this.x = Math.random()*width;
+    this.y = first ? Math.random()*height : height+Math.random()*40;
+    this.vx = (Math.random()-0.5)*0.25;
+    this.vy = -(Math.random()*0.5+0.15);
+    this.size = Math.random()*1.4+0.4;
+    this.color = randomColor();
+    this.twinklePhase = Math.random()*Math.PI*2;
+    this.twinkleSpeed = Math.random()*0.04+0.015;
+  }
+  update(){
+    this.x += this.vx; this.y += this.vy;
+    this.twinklePhase += this.twinkleSpeed;
+    this.alpha = Math.sin(this.twinklePhase)*0.35+0.45;
+    if (this.y < -10) this.reset(false);
+  }
+  draw(){
+    ctx.save();
+    ctx.globalAlpha = Math.max(this.alpha,0);
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color; ctx.shadowBlur = 5;
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
 
-      const cx = width / 2;
-      const cyHeart = height / 2 - 35;
+function drawGlowPool(frame){
+  const t = frame*0.02;
+  const pulse = Math.sin(t)*0.15+0.85;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
 
-      // Hamburan partikel percikan
-      for (let i = 0; i < 180; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const force = Math.random() * 16 + 5;
-        burstParticles.push({
-          x: cx,
-          y: cyHeart,
-          vx: Math.cos(angle) * force,
-          vy: Math.sin(angle) * force,
-          size: Math.random() * 3.2 + 1.2,
-          color: BLUE_PALETTE[Math.floor(Math.random() * BLUE_PALETTE.length)]
-        });
-      }
+  const grad = ctx.createRadialGradient(poolX,poolY,0,poolX,poolY,90*pulse);
+  grad.addColorStop(0,"rgba(191,219,254,0.9)");
+  grad.addColorStop(0.4,"rgba(59,130,246,0.5)");
+  grad.addColorStop(1,"rgba(59,130,246,0)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(poolX,poolY,70*pulse,20*pulse,0,0,Math.PI*2);
+  ctx.fill();
 
-      // Hati meledak terpental luas lalu ditarik kembali secara utuh
-      for (let i = 0; i < heartParticles.length; i++) {
-        const hp = heartParticles[i];
-        const angle = Math.atan2(hp.y - cyHeart, hp.x - cx) + (Math.random() - 0.5) * 0.4;
-        const force = Math.random() * 250 + 100;
-        hp.scatterX = Math.cos(angle) * force;
-        hp.scatterY = Math.sin(angle) * force;
-      }
-    });
-  </script>
+  for (let i=0;i<2;i++){
+    const off = Math.sin(t*1.5+i*2)*14;
+    ctx.strokeStyle = "rgba(219,234,254,0.5)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(poolX+off,poolY+Math.cos(t+i)*3,55-i*10,8-i*2,0,0,Math.PI*2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ---------- AUDIO (bassy + luxurious, synthesized, no external files) ----------
+let audioCtx=null, masterGain=null, convolver=null, audioStarted=false;
+
+function buildReverbImpulse(ctx,duration=2.6,decay=3.2){
+  const rate=ctx.sampleRate, length=Math.floor(rate*duration);
+  const impulse=ctx.createBuffer(2,length,rate);
+  for (let ch=0; ch<2; ch++){
+    const data=impulse.getChannelData(ch);
+    for (let i=0;i<length;i++) data[i]=(Math.random()*2-1)*Math.pow(1-i/length,decay);
+  }
+  return impulse;
+}
+
+function routeSound(node,dryAmt,wetAmt){
+  const dry=audioCtx.createGain(); dry.gain.value=dryAmt;
+  const wet=audioCtx.createGain(); wet.gain.value=wetAmt;
+  node.connect(dry); dry.connect(masterGain);
+  node.connect(wet); wet.connect(convolver);
+}
+
+function initAudio(){
+  if (audioStarted) return;
+  audioStarted = true;
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.85;
+  masterGain.connect(audioCtx.destination);
+
+  convolver = audioCtx.createConvolver();
+  convolver.buffer = buildReverbImpulse(audioCtx);
+  convolver.connect(masterGain);
+
+  // soft luxurious sub-bass drone underneath everything
+  const subOsc = audioCtx.createOscillator();
+  subOsc.type = 'sine';
+  subOsc.frequency.value = 42;
+  const subGain = audioCtx.createGain();
+  subGain.gain.value = 0.05;
+  subOsc.connect(subGain); subGain.connect(masterGain);
+  subOsc.start();
+
+  const lfo = audioCtx.createOscillator();
+  lfo.frequency.value = 0.08;
+  const lfoGain = audioCtx.createGain();
+  lfoGain.gain.value = 0.03;
+  lfo.connect(lfoGain); lfoGain.connect(subGain.gain);
+  lfo.start();
+
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playBoom(){
+  const t0=audioCtx.currentTime;
+  const osc=audioCtx.createOscillator();
+  osc.type='sine';
+  osc.frequency.setValueAtTime(140,t0);
+  osc.frequency.exponentialRampToValueAtTime(38,t0+0.5);
+  const g=audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(0.9,t0+0.04);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+1.4);
+  osc.connect(g); routeSound(g,0.8,0.6);
+  osc.start(t0); osc.stop(t0+1.5);
+
+  const nb=audioCtx.createBuffer(1,audioCtx.sampleRate*0.15,audioCtx.sampleRate);
+  const nd=nb.getChannelData(0);
+  for(let i=0;i<nd.length;i++) nd[i]=(Math.random()*2-1)*Math.pow(1-i/nd.length,2);
+  const noise=audioCtx.createBufferSource(); noise.buffer=nb;
+  const nf=audioCtx.createBiquadFilter(); nf.type='lowpass'; nf.frequency.value=400;
+  const ng=audioCtx.createGain(); ng.gain.value=0.5;
+  noise.connect(nf); nf.connect(ng); routeSound(ng,0.7,0.5);
+  noise.start(t0);
+}
+
+function playShimmer(){
+  const t0=audioCtx.currentTime;
+  [523.25,659.25,783.99,987.77].forEach((f,i)=>{
+    const osc=audioCtx.createOscillator();
+    osc.type='sine'; osc.frequency.value=f;
+    const g=audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(0.05,t0+0.6+i*0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+3.5);
+    osc.connect(g); routeSound(g,0.3,0.8);
+    osc.start(t0); osc.stop(t0+3.6);
+  });
+}
+
+function playWhooshRelease(){
+  const t0=audioCtx.currentTime, dur=2.2;
+  const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*dur,audioCtx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  const noise=audioCtx.createBufferSource(); noise.buffer=buf;
+  const bp=audioCtx.createBiquadFilter();
+  bp.type='bandpass'; bp.Q.value=0.8;
+  bp.frequency.setValueAtTime(1800,t0);
+  bp.frequency.exponentialRampToValueAtTime(90,t0+dur);
+  const g=audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(0.35,t0+0.3);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  noise.connect(bp); bp.connect(g); routeSound(g,0.6,0.6);
+  noise.start(t0); noise.stop(t0+dur);
+
+  const rumble=audioCtx.createOscillator();
+  rumble.type='sine';
+  rumble.frequency.setValueAtTime(70,t0);
+  rumble.frequency.linearRampToValueAtTime(30,t0+dur);
+  const rg=audioCtx.createGain();
+  rg.gain.setValueAtTime(0.0001,t0);
+  rg.gain.exponentialRampToValueAtTime(0.5,t0+0.4);
+  rg.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  rumble.connect(rg); routeSound(rg,0.7,0.4);
+  rumble.start(t0); rumble.stop(t0+dur);
+}
+
+function playRiseSwell(){
+  const t0=audioCtx.currentTime, dur=1.8;
+  const osc=audioCtx.createOscillator();
+  osc.type='sawtooth';
+  osc.frequency.setValueAtTime(60,t0);
+  osc.frequency.exponentialRampToValueAtTime(220,t0+dur);
+  const filt=audioCtx.createBiquadFilter();
+  filt.type='lowpass';
+  filt.frequency.setValueAtTime(200,t0);
+  filt.frequency.exponentialRampToValueAtTime(1800,t0+dur);
+  const g=audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(0.18,t0+dur*0.8);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  osc.connect(filt); filt.connect(g); routeSound(g,0.4,0.6);
+  osc.start(t0); osc.stop(t0+dur+0.1);
+}
+
+const SOUND_CYCLE = 620;
+let soundCycleTimer = 0;
+let soundFlags = {boom:false, whoosh:false, swell:false};
+function updateSoundCycle(){
+  if (!audioStarted) return;
+  soundCycleTimer = (soundCycleTimer+1) % SOUND_CYCLE;
+  if (soundCycleTimer===0) soundFlags = {boom:false, whoosh:false, swell:false};
+  if (soundCycleTimer===160 && !soundFlags.boom){ playBoom(); playShimmer(); soundFlags.boom=true; }
+  if (soundCycleTimer===300 && !soundFlags.whoosh){ playWhooshRelease(); soundFlags.whoosh=true; }
+  if (soundCycleTimer===520 && !soundFlags.swell){ playRiseSwell(); soundFlags.swell=true; }
+}
+
+const overlay = document.getElementById('startOverlay');
+overlay.addEventListener('click', ()=>{
+  initAudio();
+  overlay.style.opacity='0';
+  setTimeout(()=>overlay.style.display='none',400);
+});
+
+// ---------- MAIN LOOP ----------
+let frameCount = 0;
+function animate(){
+  frameCount++;
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.fillRect(0,0,width,height);
+  ctx.globalCompositeOperation = "lighter";
+
+  drawGlowPool(frameCount);
+
+  for (const p of floatParticles){ p.update(); p.draw(); }
+  for (const p of streamParticles){ p.update(); p.draw(); }
+  for (const p of heartParticles){ p.update(); p.draw(); }
+
+  ctx.globalCompositeOperation = "source-over";
+
+  updateSoundCycle();
+  requestAnimationFrame(animate);
+}
+
+resize();
+for (let i=0;i<HEART_COUNT;i++) heartParticles.push(new HeartParticle());
+for (let i=0;i<STREAM_COUNT;i++) streamParticles.push(new StreamParticle());
+for (let i=0;i<FLOAT_COUNT;i++) floatParticles.push(new FloatParticle());
+animate();
+</script>
 </body>
 </html>
