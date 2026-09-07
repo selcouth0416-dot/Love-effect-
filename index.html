@@ -3,261 +3,177 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Heart Particle & Lyrics Player</title>
+  <title>Neon Blue Heart Particle - Frontiend Exact</title>
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
       user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body, html {
       width: 100%;
       height: 100%;
-      background: #000;
+      background: #000000;
       overflow: hidden;
-      font-family: 'Courier New', Courier, monospace;
-      color: #fff;
-    }
-
-    /* Screen 1: Canvas Heart */
-    #scene1 {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 10;
-      transition: opacity 0.8s ease;
     }
 
     canvas {
       display: block;
-    }
-
-    .hint-text {
-      position: absolute;
-      bottom: 40px;
-      color: #38bdf8;
-      font-size: 13px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      opacity: 0.7;
-      animation: pulse 2s infinite ease-in-out;
-      pointer-events: none;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 0.3; transform: scale(0.98); }
-      50% { opacity: 0.85; transform: scale(1.02); }
-    }
-
-    /* Screen 2: Music & ASCII Lyrics Player */
-    #scene2 {
-      position: absolute;
-      top: 0;
-      left: 0;
       width: 100%;
       height: 100%;
-      background: #000;
-      display: none;
-      opacity: 0;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 1s ease;
-      z-index: 20;
-    }
-
-    /* Target video yang bisa diganti */
-    #bg-video {
-      display: none; /* Video diputar di memory canvas untuk render ASCII */
-    }
-
-    #ascii-screen {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      z-index: 1;
-      background: #000;
-      opacity: 0;
-      transition: opacity 1.5s ease;
-    }
-
-    #ascii-canvas {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    /* Container UI Lirik & Music */
-    .player-card {
-      position: relative;
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 90%;
-      max-width: 480px;
-      text-align: center;
-    }
-
-    .lyrics-display {
-      min-height: 110px;
-      font-size: 26px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: #fff;
-      text-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(56, 189, 248, 0.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 10px;
-      line-height: 1.4;
-      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    .visualizer-box {
-      width: 100%;
-      height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      margin-top: 15px;
-    }
-
-    .eq-bar {
-      width: 3px;
-      background: #fff;
-      border-radius: 2px;
-      height: 4px;
-      transition: height 0.08s ease;
-      box-shadow: 0 0 8px rgba(255,255,255,0.8);
-    }
-
-    .track-info {
-      margin-top: 25px;
-      font-size: 13px;
-      color: #94a3b8;
-      letter-spacing: 2px;
-      text-transform: uppercase;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-  <div id="scene1">
-    <canvas id="heartCanvas"></canvas>
-    <div class="hint-text">Ketuk Di Mana Saja</div>
-  </div>
-
-  <div id="scene2">
-    <video id="bg-video" src="video_tengah.mp4" playsinline webkit-playsinline loop muted></video>
-    
-    <div id="ascii-screen">
-      <canvas id="ascii-canvas"></canvas>
-    </div>
-
-    <div class="player-card">
-      <div class="lyrics-display" id="lyricsText">...</div>
-      <div class="visualizer-box" id="visualizer"></div>
-      <div class="track-info">Bazzi — Beautiful</div>
-    </div>
-  </div>
-
-  <audio id="bazziAudio" src="bazzi_beautiful.mp3" preload="auto"></audio>
+  <canvas id="heartCanvas"></canvas>
 
   <script>
     /* ========================================================
-       1. SYNTH AUDIO ENGINE (Sound Bass & Woosh Mewah)
+       1. SYNTH AUDIO ENGINE (SUB-BASS MEWAH & RISER)
        ======================================================== */
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
 
-    function initAudio() {
+    function ensureAudio() {
       if (!audioCtx) audioCtx = new AudioCtx();
       if (audioCtx.state === 'suspended') audioCtx.resume();
     }
 
-    // Suara putaran & tarikan partikel (deep whoosh berkumpul)
+    // Aktifkan audio context pada ketukan pertama
+    ['touchstart', 'mousedown', 'pointerdown'].forEach(ev => {
+      window.addEventListener(ev, ensureAudio, { once: true, passive: true });
+    });
+
+    function makeDistortionCurve(amount = 25) {
+      const k = amount;
+      const n = 44100;
+      const curve = new Float32Array(n);
+      const deg = Math.PI / 180;
+      for (let i = 0; i < n; ++i) {
+        let x = (i * 2) / n - 1;
+        curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+      }
+      return curve;
+    }
+
+    // Suara deep vacuum & sub-drone saat partikel berputar & memadat
     function playGatherSound() {
       if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+
+      // Layer 1: Sub-bass swell rendah
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       const filter = audioCtx.createBiquadFilter();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(40, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 1.2);
+      osc.frequency.setValueAtTime(32, t);
+      osc.frequency.exponentialRampToValueAtTime(85, t + 1.4);
 
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(80, audioCtx.currentTime);
-      filter.frequency.linearRampToValueAtTime(320, audioCtx.currentTime + 1.2);
+      filter.frequency.setValueAtTime(60, t);
+      filter.frequency.linearRampToValueAtTime(260, t + 1.2);
 
-      gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 0.8);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.4);
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(0.5, t + 0.8);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
 
       osc.connect(filter);
       filter.connect(gain);
       gain.connect(audioCtx.destination);
 
-      osc.start();
-      osc.stop(audioCtx.currentTime + 1.4);
-    }
-
-    // Suara ledakan pecah saat diklik (Sub-bass impact + shimmer stereo)
-    function playExplosionSound() {
-      if (!audioCtx) return;
-      const t = audioCtx.currentTime;
-
-      // Sub Bass Kick Boom
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(140, t);
-      osc.frequency.exponentialRampToValueAtTime(30, t + 0.9);
-
-      gain.gain.setValueAtTime(0.8, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
       osc.start(t);
-      osc.stop(t + 1.0);
+      osc.stop(t + 1.6);
 
-      // Noise sparkle burst
-      const bufferSize = audioCtx.sampleRate * 0.8;
-      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      // Layer 2: Texture hisapan udara halus
+      const bufSize = audioCtx.sampleRate * 1.2;
+      const buffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
       const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-      }
+      for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
 
       const noise = audioCtx.createBufferSource();
       noise.buffer = buffer;
+
+      const nFilter = audioCtx.createBiquadFilter();
+      nFilter.type = 'bandpass';
+      nFilter.frequency.setValueAtTime(180, t);
+      nFilter.frequency.exponentialRampToValueAtTime(650, t + 1.2);
+      nFilter.Q.setValueAtTime(4, t);
+
+      const nGain = audioCtx.createGain();
+      nGain.gain.setValueAtTime(0.001, t);
+      nGain.gain.linearRampToValueAtTime(0.2, t + 0.7);
+      nGain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+
+      noise.connect(nFilter);
+      nFilter.connect(nGain);
+      nGain.connect(audioCtx.destination);
+
+      noise.start(t);
+      noise.stop(t + 1.5);
+    }
+
+    // Suara ledakan sub-bass bioskop (808 drop empuk & padat)
+    function playHeavyBassExplosion() {
+      ensureAudio();
+      const t = audioCtx.currentTime;
+
+      // 1. Sub-bass Drop (180 Hz -> 20 Hz)
+      const subOsc = audioCtx.createOscillator();
+      const subGain = audioCtx.createGain();
+      subOsc.type = 'sine';
+      subOsc.frequency.setValueAtTime(180, t);
+      subOsc.frequency.exponentialRampToValueAtTime(20, t + 1.3);
+
+      subGain.gain.setValueAtTime(1.0, t);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+
+      subOsc.connect(subGain);
+      subGain.connect(audioCtx.destination);
+      subOsc.start(t);
+      subOsc.stop(t + 1.4);
+
+      // 2. Analog Overdrive Saturation Punch
+      const punchOsc = audioCtx.createOscillator();
+      const punchGain = audioCtx.createGain();
+      const dist = audioCtx.createWaveShaper();
+      dist.curve = makeDistortionCurve(22);
+
+      punchOsc.type = 'triangle';
+      punchOsc.frequency.setValueAtTime(110, t);
+      punchOsc.frequency.exponentialRampToValueAtTime(28, t + 0.6);
+
+      punchGain.gain.setValueAtTime(0.85, t);
+      punchGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+
+      punchOsc.connect(dist);
+      dist.connect(punchGain);
+      punchGain.connect(audioCtx.destination);
+      punchOsc.start(t);
+      punchOsc.stop(t + 0.6);
+
+      // 3. Shimmer Air Blast (Sparkle)
+      const bufferSize = audioCtx.sampleRate * 0.8;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1200, t);
-      filter.Q.setValueAtTime(3, t);
+      filter.frequency.setValueAtTime(1500, t);
+      filter.Q.setValueAtTime(2.2, t);
 
       const noiseGain = audioCtx.createGain();
-      noiseGain.gain.setValueAtTime(0.4, t);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+      noiseGain.gain.setValueAtTime(0.45, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
 
       noise.connect(filter);
       filter.connect(noiseGain);
@@ -268,76 +184,147 @@
     }
 
     /* ========================================================
-       2. HEART PARTICLES SYSTEM (SAMA SEPERTI VIDEO 1)
+       2. HEART & BASE VORTEX SIMULATION
        ======================================================== */
     const canvas = document.getElementById('heartCanvas');
     const ctx = canvas.getContext('2d');
-    let width, height;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
 
-    function resizeCanvas() {
+    window.addEventListener('resize', () => {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+    });
 
     // Palet warna biru elektrik identik video @frontiend
-    const BLUE_SHADES = ['#38bdf8', '#06b6d4', '#93c5fd', '#2563eb', '#bfdbfe', '#1d4ed8'];
+    const BLUE_SHADES = [
+      '#ffffff', // Core sparkle
+      '#e0f2fe', // Sky 100
+      '#38b2f6', // Blue 400
+      '#06b6f4', // Cyan 500
+      '#93c5fd', // Blue 300
+      '#2563eb', // Blue 600
+      '#bfdbfe', // Blue 200
+      '#1d4ed8'  // Blue 700
+    ];
 
-    // Rumus koordinat bentuk hati
-    function heartFunction(t, scale = 14) {
+    // Persamaan matematis kontur hati
+    function getHeartPoint(t, scale = 14) {
       const x = 16 * Math.pow(Math.sin(t), 3);
       const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
       return { x: x * scale, y: y * scale };
     }
 
+    const vortexRingParticles = [];
+    const upwardStreamParticles = [];
+    const heartParticles = [];
+    const burstParticles = [];
+
+    const HEART_COUNT = 2800; // Kerapatan padat sesuai video
+    const VORTEX_COUNT = 380; // Pusaran api dasar
+    const STREAM_COUNT = 160; // Aliran partikel dari pusaran bawah ke hati
+
     class Particle {
-      constructor(x, y, type = 'float') {
-        this.x = x;
-        this.y = y;
+      constructor(type = 'heart') {
         this.type = type;
         this.color = BLUE_SHADES[Math.floor(Math.random() * BLUE_SHADES.length)];
-        this.size = Math.random() * 2.2 + 0.8;
-        this.life = 0;
-        this.maxLife = Math.random() * 120 + 80;
+        this.size = Math.random() * 2.1 + 0.7;
 
-        if (type === 'float') {
-          this.vx = (Math.random() - 0.5) * 0.8;
-          this.vy = -Math.random() * 1.5 - 0.5;
+        if (type === 'vortex') {
+          // Pusaran spiral melingkar di bawah
+          this.angle = Math.random() * Math.PI * 2;
+          this.radius = Math.random() * 110 + 15;
+          this.speed = (Math.random() * 0.06 + 0.035);
+          this.yOffset = (Math.random() - 0.5) * 22;
+          this.size = Math.random() * 2.8 + 1.1;
+        } else if (type === 'stream') {
+          // Partikel yang ditarik dari bawah naik ke ujung hati
+          this.resetStream();
         } else if (type === 'heart') {
-          this.target = heartFunction(Math.random() * Math.PI * 2);
-          this.vx = 0;
-          this.vy = 0;
-          this.speed = Math.random() * 0.04 + 0.02;
+          this.initHeartPosition();
+          this.speed = Math.random() * 0.05 + 0.02;
+          this.orbitAngle = Math.random() * Math.PI * 2;
+          this.orbitSpeed = (Math.random() - 0.5) * 0.04;
+          this.orbitRadius = Math.random() * 8;
+          this.scatterX = 0;
+          this.scatterY = 0;
         } else if (type === 'burst') {
+          this.x = width / 2;
+          this.y = height / 2 - 25;
           const angle = Math.random() * Math.PI * 2;
-          const force = Math.random() * 12 + 4;
+          const force = Math.random() * 20 + 5;
           this.vx = Math.cos(angle) * force;
           this.vy = Math.sin(angle) * force;
-          this.size = Math.random() * 3.5 + 1.5;
-          this.decay = 0.95;
+          this.size = Math.random() * 3.8 + 1.2;
+          this.decay = 0.93;
         }
       }
 
-      update() {
-        this.life++;
-        if (this.type === 'float') {
-          this.y += this.vy;
+      resetStream() {
+        this.angle = Math.random() * Math.PI * 2;
+        this.radius = Math.random() * 70;
+        this.x = width / 2 + Math.cos(this.angle) * this.radius;
+        this.y = height * 0.74;
+        this.vx = (Math.random() - 0.5) * 1.5;
+        this.vy = -Math.random() * 2.6 - 1.2;
+        this.life = 0;
+        this.maxLife = Math.random() * 70 + 35;
+      }
+
+      initHeartPosition() {
+        this.t = Math.random() * Math.PI * 2;
+        // 65% di tepi agar garis hati tajam, 35% di dalam volume hati
+        const isBorder = Math.random() > 0.35;
+        const scaleFactor = isBorder ? (1 + (Math.random() - 0.5) * 0.08) : Math.sqrt(Math.random()) * 0.95;
+        const pt = getHeartPoint(this.t, 14.5 * scaleFactor);
+        this.targetX = pt.x;
+        this.targetY = pt.y;
+        this.x = width / 2 + (Math.random() - 0.5) * 40;
+        this.y = height * 0.74;
+      }
+
+      update(beatScale = 1) {
+        if (this.type === 'vortex') {
+          this.angle += this.speed;
+          const cx = width / 2;
+          const cy = height * 0.74;
+          const rx = this.radius * 1.35;
+          const ry = this.radius * 0.34;
+          this.x = cx + Math.cos(this.angle) * rx;
+          this.y = cy + Math.sin(this.angle) * ry + this.yOffset;
+        } else if (this.type === 'stream') {
+          this.life++;
           this.x += this.vx;
-          if (this.y < 0) this.y = height;
+          this.y += this.vy;
+          // Melengkung ditarik menuju ujung bawah hati
+          const targetTipX = width / 2;
+          const targetTipY = height / 2 + 130;
+          this.vx += (targetTipX - this.x) * 0.015;
+          this.vy += (targetTipY - this.y) * 0.012;
+          if (this.life > this.maxLife) this.resetStream();
         } else if (this.type === 'heart') {
-          const tx = width / 2 + this.target.x;
-          const ty = height / 2 + this.target.y;
+          this.orbitAngle += this.orbitSpeed;
+          const ox = Math.cos(this.orbitAngle) * this.orbitRadius;
+          const oy = Math.sin(this.orbitAngle) * this.orbitRadius;
+
+          const cx = width / 2;
+          const cy = height / 2 - 25;
+
+          const tx = cx + (this.targetX * beatScale) + ox + this.scatterX;
+          const ty = cy + (this.targetY * beatScale) + oy + this.scatterY;
+
           this.x += (tx - this.x) * this.speed;
           this.y += (ty - this.y) * this.speed;
-          this.x += (Math.random() - 0.5) * 0.8;
-          this.y += (Math.random() - 0.5) * 0.8;
+
+          // Redam hentakan hamburan ledakan
+          this.scatterX *= 0.91;
+          this.scatterY *= 0.91;
         } else if (this.type === 'burst') {
           this.x += this.vx;
           this.y += this.vy;
           this.vx *= this.decay;
           this.vy *= this.decay;
-          this.size *= 0.98;
+          this.size *= 0.96;
         }
       }
 
@@ -347,235 +334,118 @@
         c.shadowColor = this.color;
         c.shadowBlur = 10;
         c.beginPath();
-        c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        c.arc(this.x, this.y, Math.max(0.1, this.size), 0, Math.PI * 2);
         c.fill();
         c.restore();
       }
     }
 
-    let particles = [];
-    const HEART_COUNT = 480;
-    let isHeartFormed = false;
+    // Inisialisasi partikel pusaran bawah
+    for (let i = 0; i < VORTEX_COUNT; i++) vortexRingParticles.push(new Particle('vortex'));
 
-    // Bentuk partikel hati
-    for (let i = 0; i < HEART_COUNT; i++) {
-      const p = new Particle(Math.random() * width, Math.random() * height, 'heart');
-      particles.push(p);
+    // Inisialisasi partikel aliran penghubung
+    for (let i = 0; i < STREAM_COUNT; i++) upwardStreamParticles.push(new Particle('stream'));
+
+    // Inisialisasi partikel hati
+    for (let i = 0; i < HEART_COUNT; i++) heartParticles.push(new Particle('heart'));
+
+    function spawnBurst(cx, cy) {
+      for (let i = 0; i < 220; i++) {
+        const p = new Particle('burst');
+        p.x = cx;
+        p.y = cy;
+        burstParticles.push(p);
+      }
     }
 
-    // Floating base ambient
-    for (let i = 0; i < 90; i++) {
-      particles.push(new Particle(Math.random() * width, Math.random() * height, 'float'));
-    }
+    /* ========================================================
+       3. ANIMASI LOOP
+       ======================================================== */
+    let time = 0;
 
-    let isExploded = false;
-
-    function renderScene1() {
-      if (isExploded) return;
+    function render() {
+      time += 0.045;
+      ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
       ctx.fillRect(0, 0, width, height);
 
-      // Sinar dasar (Aura)
-      const grad = ctx.createRadialGradient(width/2, height/2 + 20, 10, width/2, height/2 + 20, 160);
-      grad.addColorStop(0, 'rgba(56, 189, 248, 0.2)');
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, width, height);
+      // Mode pendaran neon (Additive Screen Bloom)
+      ctx.globalCompositeOperation = 'lighter';
 
-      particles.forEach(p => {
+      // Pedestal Cahaya Biru Menyala di Bawah
+      const vcx = width / 2;
+      const vcy = height * 0.74;
+
+      const baseGlow = ctx.createRadialGradient(vcx, vcy, 8, vcx, vcy, 175);
+      baseGlow.addColorStop(0, 'rgba(255, 255, 255, 0.95)'); // Inti putih terang
+      baseGlow.addColorStop(0.15, 'rgba(56, 178, 246, 0.85)'); // Cyan terang
+      baseGlow.addColorStop(0.45, 'rgba(37, 99, 235, 0.35)');  // Electric blue
+      baseGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.fillStyle = baseGlow;
+      ctx.beginPath();
+      ctx.ellipse(vcx, vcy, 180, 48, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Update partikel pusaran spiral bawah
+      vortexRingParticles.forEach(p => {
         p.update();
         p.draw(ctx);
       });
 
-      requestAnimationFrame(renderScene1);
-    }
-    renderScene1();
+      // Update partikel aliran naik dari bawah ke atas
+      upwardStreamParticles.forEach(p => {
+        p.update();
+        p.draw(ctx);
+      });
 
-    // Trigger audio putaran setiap beberapa detik
+      // Detak denyut lembut pada hati
+      const beat = 1 + Math.sin(time * 2.8) * 0.032;
+
+      // Update dan gambar 2.800+ partikel hati
+      heartParticles.forEach(p => {
+        p.update(beat);
+        p.draw(ctx);
+      });
+
+      // Update ledakan partikel saat diketuk
+      for (let i = burstParticles.length - 1; i >= 0; i--) {
+        const p = burstParticles[i];
+        p.update();
+        p.draw(ctx);
+        if (p.size < 0.25) burstParticles.splice(i, 1);
+      }
+
+      requestAnimationFrame(render);
+    }
+    render();
+
+    // Suara deburan / riser berputar berkala
     setInterval(() => {
-      if (!isExploded && audioCtx) playGatherSound();
-    }, 4500);
+      if (audioCtx) playGatherSound();
+    }, 4200);
 
     /* ========================================================
-       3. INTERAKSI KLIK: LEDAKAN PECAH & TRANSISI
+       4. INTERAKSI KETUK
        ======================================================== */
-    const scene1 = document.getElementById('scene1');
-    const scene2 = document.getElementById('scene2');
-    const bazziAudio = document.getElementById('bazziAudio');
-    const bgVideo = document.getElementById('bg-video');
+    window.addEventListener('pointerdown', (e) => {
+      // Suara dentuman sub-bass instan tanpa delay
+      playHeavyBassExplosion();
 
-    scene1.addEventListener('pointerdown', () => {
-      initAudio();
-      playExplosionSound();
+      const cx = width / 2;
+      const cy = height / 2 - 25;
 
-      // Ledakan partikel besar
-      particles = [];
-      for (let i = 0; i < 350; i++) {
-        // Partikel ledakan berpola sebaran hati
-        const angle = Math.random() * Math.PI * 2;
-        const p = new Particle(width / 2, height / 2, 'burst');
-        particles.push(p);
-      }
+      // Hembusan ledakan keluar
+      spawnBurst(cx, cy);
 
-      // Animasi ledakan sesaat
-      let burstFrames = 0;
-      function burstLoop() {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
-        ctx.fillRect(0, 0, width, height);
-        particles.forEach(p => {
-          p.update();
-          p.draw(ctx);
-        });
-        burstFrames++;
-        if (burstFrames < 50) {
-          requestAnimationFrame(burstLoop);
-        } else {
-          isExploded = true;
-          startScene2();
-        }
-      }
-      burstLoop();
+      // Partikel hati terpental luas lalu ditarik kembali membentuk hati
+      heartParticles.forEach(p => {
+        const angle = Math.atan2(p.y - cy, p.x - cx) + (Math.random() - 0.5) * 0.5;
+        const force = Math.random() * 280 + 130;
+        p.scatterX = Math.cos(angle) * force;
+        p.scatterY = Math.sin(angle) * force;
+      });
     });
-
-    function startScene2() {
-      scene1.style.opacity = '0';
-      setTimeout(() => {
-        scene1.style.display = 'none';
-        scene2.style.display = 'flex';
-        setTimeout(() => {
-          scene2.style.opacity = '1';
-          bazziAudio.play().catch(() => {});
-          bgVideo.play().catch(() => {});
-          initAsciiEngine();
-          startLyricsEngine();
-        }, 100);
-      }, 700);
-    }
-
-    /* ========================================================
-       4. ASCII VIDEO EFFECT ENGINE (PERSIS VIDEO KEDUA)
-       ======================================================== */
-    const asciiCanvas = document.getElementById('ascii-canvas');
-    const actx = asciiCanvas.getContext('2d');
-    const asciiScreen = document.getElementById('ascii-screen');
-    const offCanvas = document.createElement('canvas');
-    const offCtx = offCanvas.getContext('2d', { willReadFrequently: true });
-
-    const ASCII_CHARS = " .,:;i1tfLCG08@";
-
-    function initAsciiEngine() {
-      asciiCanvas.width = window.innerWidth;
-      asciiCanvas.height = window.innerHeight;
-      renderAsciiFrame();
-    }
-
-    function renderAsciiFrame() {
-      if (bgVideo.paused || bgVideo.ended) {
-        requestAnimationFrame(renderAsciiFrame);
-        return;
-      }
-
-      const cols = 100;
-      const rows = 55;
-      offCanvas.width = cols;
-      offCanvas.height = rows;
-
-      offCtx.drawImage(bgVideo, 0, 0, cols, rows);
-      const imgData = offCtx.getImageData(0, 0, cols, rows).data;
-
-      actx.fillStyle = '#000';
-      actx.fillRect(0, 0, asciiCanvas.width, asciiCanvas.height);
-      actx.font = '10px monospace';
-      actx.fillStyle = '#fff';
-
-      const cellW = asciiCanvas.width / cols;
-      const cellH = asciiCanvas.height / rows;
-
-      for (let y = 0; y < rows; y++) {
-        for (let x = 0; x < cols; x++) {
-          const idx = (y * cols + x) * 4;
-          const r = imgData[idx];
-          const g = imgData[idx + 1];
-          const b = imgData[idx + 2];
-          const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-          const charIdx = Math.floor(brightness * (ASCII_CHARS.length - 1));
-          const char = ASCII_CHARS[charIdx];
-
-          actx.fillStyle = `rgb(${r},${g},${b})`;
-          actx.fillText(char, x * cellW, y * cellH);
-        }
-      }
-      requestAnimationFrame(renderAsciiFrame);
-    }
-
-    /* ========================================================
-       5. SINKRONISASI LIRIK: BAZZI - BEAUTIFUL
-       ======================================================== */
-    const lyricsData = [
-      { time: 0.0, text: "" },
-      { time: 3.5, text: "saying you're the one for me, i need to face it" },
-      { time: 9.8, text: "started when we were younger" },
-      { time: 13.0, text: "swear to god that i loved her" },
-      { time: 15.5, text: "sorry that your mom found out" },
-      { time: 18.2, text: "guess that we just really had the thunder" },
-      { time: 20.6, text: "ain't nobody else that i'd be under" },
-      { time: 22.8, text: "beautiful, beautiful life right now" },
-      { time: 25.4, text: "beautiful, beautiful night right now" },
-      { time: 27.2, text: "no, no, no" },
-      { time: 29.8, text: "hey.." },
-      { time: 31.8, text: "beautiful, beautiful, beautiful, beautiful angel" },
-      { time: 36.8, text: "love your imperfections every angle" },
-      { time: 41.2, text: "tomorrow comes and goes before you know" },
-      { time: 46.0, text: "so i just had to let you know.." }
-    ];
-
-    const lyricsEl = document.getElementById('lyricsText');
-
-    function startLyricsEngine() {
-      // Audio Visualizer Bar Mock
-      const visualizer = document.getElementById('visualizer');
-      visualizer.innerHTML = '';
-      const barCount = 38;
-      const bars = [];
-      for (let i = 0; i < barCount; i++) {
-        const bar = document.createElement('div');
-        bar.className = 'eq-bar';
-        visualizer.appendChild(bar);
-        bars.push(bar);
-      }
-
-      function updateLyrics() {
-        const curTime = bazziAudio.currentTime;
-
-        // Tampilkan video ASCII di pertengahan lagu (mulai detik 23 saat lirik "beautiful angel")
-        if (curTime >= 23.0 && curTime <= 48.0) {
-          asciiScreen.style.opacity = '0.55';
-        } else {
-          asciiScreen.style.opacity = '0';
-        }
-
-        // Sinkronisasi teks lirik
-        for (let i = lyricsData.length - 1; i >= 0; i--) {
-          if (curTime >= lyricsData[i].time) {
-            if (lyricsEl.innerText !== lyricsData[i].text) {
-              lyricsEl.innerText = lyricsData[i].text;
-              lyricsEl.style.transform = 'scale(1.08)';
-              setTimeout(() => { lyricsEl.style.transform = 'scale(1)'; }, 180);
-            }
-            break;
-          }
-        }
-
-        // Animasi EQ Bars visualizer
-        bars.forEach((b, idx) => {
-          const h = Math.sin(curTime * 8 + idx * 0.4) * 16 + 18;
-          b.style.height = `${Math.max(4, h)}px`;
-        });
-
-        requestAnimationFrame(updateLyrics);
-      }
-      requestAnimationFrame(updateLyrics);
-    }
   </script>
 </body>
 </html>
