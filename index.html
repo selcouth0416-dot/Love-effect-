@@ -1,332 +1,233 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blue Heart Vortex Particle</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    body, html {
-      width: 100%;
-      height: 100%;
-      background: #000000;
-      overflow: hidden;
-    }
-
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heart Particle Burst</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #000;
+    height: 100%;
+    width: 100%;
+  }
+  canvas {
+    display: block;
+  }
+</style>
 </head>
 <body>
+<canvas id="canvas"></canvas>
 
-  <canvas id="heartCanvas"></canvas>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let width, height;
 
-  <script>
-    /* ========================================================
-       1. SYNTH AUDIO: SUB-BASS WOOSH & 808 EXPLOSION
-       ======================================================== */
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    let audioCtx = null;
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  setupHeartPosition();
+}
+window.addEventListener('resize', resize);
 
-    function ensureAudio() {
-      if (!audioCtx) audioCtx = new AudioCtx();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+const BLUE_SHADES = [
+  "#3b82f6", "#60a5fa", // blue-400/500
+  "#93c5fd", "#2563eb", // blue-600
+  "#bfdbfe", "#1d4ed8", // blue-700
+];
+
+function randomColor() {
+  return BLUE_SHADES[Math.floor(Math.random() * BLUE_SHADES.length)];
+}
+
+const floatParticles = [];
+const burstParticles = [];
+const FLOAT_COUNT = 140;
+const BURST_COUNT = 140;
+
+let heartCenterX, heartCenterY, heartScale, poolX, poolY;
+
+function setupHeartPosition() {
+  heartCenterX = width / 2;
+  heartCenterY = height * 0.42;
+  heartScale = Math.min(width, height) * 0.018;
+  poolX = width / 2;
+  poolY = height * 0.72;
+}
+
+class Particle {
+  constructor(x, y, type) {
+    this.x = x;
+    this.y = y;
+    this.type = type;
+    this.color = randomColor();
+    this.alpha = 1;
+
+    if (type === "float") {
+      this.vx = (Math.random() - 0.5) * 0.3;
+      this.vy = -(Math.random() * 0.6 + 0.2);
+      this.size = Math.random() * 1.6 + 0.5;
+      this.maxLife = Math.random() * 200 + 150;
+      this.life = Math.random() * this.maxLife; // stagger starting life
+      this.twinkleSpeed = Math.random() * 0.05 + 0.02;
+      this.twinklePhase = Math.random() * Math.PI * 2;
+    } else if (type === "burst") {
+      this.startX = x;
+      this.startY = y;
+
+      const t = Math.random() * Math.PI * 2;
+      const hx = 16 * Math.pow(Math.sin(t), 3);
+      const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+      const jitter = Math.random() * 9;
+      const angleJ = Math.random() * Math.PI * 2;
+
+      this.targetX = heartCenterX + hx * heartScale + Math.cos(angleJ) * jitter;
+      this.targetY = heartCenterY + hy * heartScale + Math.sin(angleJ) * jitter;
+
+      this.progress = 0;
+      this.speed = Math.random() * 0.02 + 0.012;
+      this.phase = "forming"; // forming -> holding -> exploding
+      this.holdTime = 0;
+      this.maxHold = Math.random() * 60 + 90;
+      this.size = Math.random() * 2.2 + 0.8;
+      this.explodeVX = 0;
+      this.explodeVY = 0;
+      this.alpha = 0;
     }
+  }
 
-    ['touchstart', 'mousedown', 'pointerdown'].forEach(ev => {
-      window.addEventListener(ev, ensureAudio, { once: true, passive: true });
-    });
-
-    // Suara putaran pusaran yang tersedot ke atas
-    function playVortexRiseSound() {
-      if (!audioCtx) return;
-      const t = audioCtx.currentTime;
-
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      const filter = audioCtx.createBiquadFilter();
-
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(30, t);
-      osc.frequency.exponentialRampToValueAtTime(110, t + 1.4);
-
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(50, t);
-      filter.frequency.exponentialRampToValueAtTime(260, t + 1.4);
-
-      gain.gain.setValueAtTime(0.001, t);
-      gain.gain.linearRampToValueAtTime(0.35, t + 0.9);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
-
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.start(t);
-      osc.stop(t + 1.8);
-    }
-
-    // Suara ledakan sub-bass bioskop saat diketuk
-    function playBassBlast() {
-      ensureAudio();
-      const t = audioCtx.currentTime;
-
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(160, t);
-      osc.frequency.exponentialRampToValueAtTime(22, t + 1.1);
-
-      gain.gain.setValueAtTime(0.9, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(t);
-      osc.stop(t + 1.2);
-
-      // Shimmer sweep
-      const bufSize = audioCtx.sampleRate * 0.6;
-      const buffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
-
-      const noise = audioCtx.createBufferSource();
-      noise.buffer = buffer;
-
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1200, t);
-      filter.Q.setValueAtTime(3, t);
-
-      const nGain = audioCtx.createGain();
-      nGain.gain.setValueAtTime(0.3, t);
-      nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-
-      noise.connect(filter);
-      filter.connect(nGain);
-      nGain.connect(audioCtx.destination);
-
-      noise.start(t);
-      noise.stop(t + 0.6);
-    }
-
-    /* ========================================================
-       2. PARTIKEL DENGAN WARNA GELAP & ALUR PUSARAN KE HATI
-       ======================================================== */
-    const canvas = document.getElementById('heartCanvas');
-    const ctx = canvas.getContext('2d');
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
-
-    window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
-
-    // Palet warna biru pekat dan gelap sesuai video asli
-    const DEEP_BLUES = [
-      '#0f172a', // deep navy
-      '#1e293b', // slate dark
-      '#1d4ed8', // deep royal blue
-      '#2563eb', // sapphire blue
-      '#0284c7', // electric ocean
-      '#38bdf8'  // edge highlight
-    ];
-
-    function getHeartPoint(t, scale = 14) {
-      const x = 16 * Math.pow(Math.sin(t), 3);
-      const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-      return { x: x * scale, y: y * scale };
-    }
-
-    const TOTAL_PARTICLES = 1100;
-    const particles = [];
-    const burstParticles = [];
-
-    class MorphParticle {
-      constructor() {
-        this.color = DEEP_BLUES[Math.floor(Math.random() * DEEP_BLUES.length)];
-        this.size = Math.random() * 2.0 + 0.7;
-
-        // Parameter saat fase pusaran bawah
-        this.vortexAngle = Math.random() * Math.PI * 2;
-        this.vortexRadius = Math.random() * 95 + 10;
-        this.vortexSpeed = Math.random() * 0.07 + 0.03;
-        this.vortexYOffset = (Math.random() - 0.5) * 12;
-
-        // Parameter saat fase bentuk hati
-        this.heartT = Math.random() * Math.PI * 2;
-        const isRim = Math.random() > 0.35;
-        const s = isRim ? (1 + (Math.random() - 0.5) * 0.08) : Math.sqrt(Math.random()) * 0.95;
-        const hp = getHeartPoint(this.heartT, 14.5 * s);
-        this.heartX = hp.x;
-        this.heartY = hp.y;
-
-        // Posisi & status
-        this.x = width / 2;
-        this.y = height * 0.78;
-        this.scatterX = 0;
-        this.scatterY = 0;
-      }
-
-      update(stateProgress, beat) {
-        const cx = width / 2;
-        const cyBottom = height * 0.78;
-        const cyHeart = height / 2 - 25;
-
-        // Posisi di pusaran bawah
-        this.vortexAngle += this.vortexSpeed;
-        const vx = cx + Math.cos(this.vortexAngle) * (this.vortexRadius * 1.4);
-        const vy = cyBottom + Math.sin(this.vortexAngle) * (this.vortexRadius * 0.3) + this.vortexYOffset;
-
-        // Posisi di hati atas
-        const hx = cx + (this.heartX * beat);
-        const hy = cyHeart + (this.heartY * beat);
-
-        // Interpolasi perpindahan dari pusaran bawah (0) ke hati (1)
-        const targetX = vx + (hx - vx) * stateProgress + this.scatterX;
-        const targetY = vy + (hy - vy) * stateProgress + this.scatterY;
-
-        this.x += (targetX - this.x) * 0.08;
-        this.y += (targetY - this.y) * 0.08;
-
-        this.scatterX *= 0.92;
-        this.scatterY *= 0.92;
-      }
-
-      draw(c) {
-        c.fillStyle = this.color;
-        c.beginPath();
-        c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        c.fill();
+  update() {
+    if (this.type === "float") {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.life++;
+      this.twinklePhase += this.twinkleSpeed;
+      this.alpha = Math.sin(this.twinklePhase) * 0.35 + 0.55;
+      if (this.life > this.maxLife || this.y < -10) this.reset();
+    } else if (this.type === "burst") {
+      if (this.phase === "forming") {
+        this.progress += this.speed;
+        if (this.progress >= 1) {
+          this.progress = 1;
+          this.phase = "holding";
+        }
+        const ease = 1 - Math.pow(1 - this.progress, 3);
+        this.x = this.startX + (this.targetX - this.startX) * ease;
+        this.y = this.startY + (this.targetY - this.startY) * ease;
+        this.alpha = ease;
+      } else if (this.phase === "holding") {
+        this.holdTime++;
+        this.x = this.targetX + Math.sin(this.holdTime * 0.05 + this.targetX) * 0.4;
+        this.y = this.targetY + Math.cos(this.holdTime * 0.05 + this.targetY) * 0.4;
+        this.alpha = 0.85 + Math.sin(this.holdTime * 0.1) * 0.15;
+        if (this.holdTime > this.maxHold) {
+          this.phase = "exploding";
+          const angle = Math.random() * Math.PI * 2;
+          const force = Math.random() * 3 + 1.5;
+          this.explodeVX = Math.cos(angle) * force;
+          this.explodeVY = Math.sin(angle) * force - 1;
+        }
+      } else if (this.phase === "exploding") {
+        this.x += this.explodeVX;
+        this.y += this.explodeVY;
+        this.explodeVX *= 0.96;
+        this.explodeVY *= 0.96;
+        this.alpha -= 0.02;
       }
     }
+  }
 
-    for (let i = 0; i < TOTAL_PARTICLES; i++) {
-      particles.push(new MorphParticle());
-    }
+  reset() {
+    this.x = Math.random() * width;
+    this.y = height + Math.random() * 40;
+    this.vx = (Math.random() - 0.5) * 0.3;
+    this.vy = -(Math.random() * 0.6 + 0.2);
+    this.life = 0;
+    this.maxLife = Math.random() * 200 + 150;
+    this.color = randomColor();
+  }
 
-    /* ========================================================
-       3. SIKLUS: PUSARAN BAWAH -> MENGUMPUL JADI HATI
-       ======================================================== */
-    let animTime = 0;
-    let cyclePhase = 0; // 0 = berputar di bawah, 1 = naik menyatu jadi hati
-    let morphProgress = 0;
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = Math.max(this.alpha, 0);
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
-    function cycleManager() {
-      if (cyclePhase === 0) {
-        playVortexRiseSound();
-        // Berputar di bawah selama 2.5 detik lalu melesat naik
-        setTimeout(() => {
-          cyclePhase = 1;
-        }, 2200);
-      }
-    }
-    cycleManager();
+  isDead() {
+    return this.type === "burst" && this.phase === "exploding" && this.alpha <= 0;
+  }
+}
 
-    function render() {
-      animTime += 0.035;
+function spawnHeartBurst(x, y) {
+  const count = BURST_COUNT;
+  for (let i = 0; i < count; i++) {
+    burstParticles.push(new Particle(x, y, "burst"));
+  }
+}
 
-      // Latar belakang hitam murni dengan jejak redup halus
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
-      ctx.fillRect(0, 0, width, height);
+function drawGlowPool() {
+  const t = performance.now() * 0.002;
+  const pulse = Math.sin(t) * 0.15 + 0.85;
+  const grad = ctx.createRadialGradient(poolX, poolY, 0, poolX, poolY, 90 * pulse);
+  grad.addColorStop(0, "rgba(191,219,254,0.9)");
+  grad.addColorStop(0.4, "rgba(59,130,246,0.5)");
+  grad.addColorStop(1, "rgba(59,130,246,0)");
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(poolX, poolY, 70 * pulse, 20 * pulse, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
 
-      // Transisi progress gerak (0 ke 1)
-      if (cyclePhase === 1 && morphProgress < 1) {
-        morphProgress += 0.015;
-        if (morphProgress > 1) morphProgress = 1;
-      }
+function animate() {
+  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  ctx.fillRect(0, 0, width, height);
 
-      // Cahaya dasar biru gelap (Deep Midnight Pedestal)
-      ctx.globalCompositeOperation = 'lighter';
-      const cx = width / 2;
-      const cyBottom = height * 0.78;
+  ctx.globalCompositeOperation = "lighter";
 
-      const darkGlow = ctx.createRadialGradient(cx, cyBottom, 4, cx, cyBottom, 120);
-      darkGlow.addColorStop(0, 'rgba(29, 78, 216, 0.45)');  // Deep royal blue
-      darkGlow.addColorStop(0.4, 'rgba(15, 23, 42, 0.35)'); // Navy gelap
-      darkGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  drawGlowPool();
 
-      ctx.fillStyle = darkGlow;
-      ctx.beginPath();
-      ctx.ellipse(cx, cyBottom, 130, 32, 0, 0, Math.PI * 2);
-      ctx.fill();
+  for (const p of floatParticles) {
+    p.update();
+    p.draw();
+  }
 
-      // Denyut halus saat sudah berbentuk hati
-      const beat = 1 + Math.sin(animTime * 3) * (0.025 * morphProgress);
+  for (let i = burstParticles.length - 1; i >= 0; i--) {
+    const p = burstParticles[i];
+    p.update();
+    p.draw();
+    if (p.isDead()) burstParticles.splice(i, 1);
+  }
 
-      // Gambar semua partikel
-      for (let i = 0; i < particles.length; i++) {
-        particles[i].update(morphProgress, beat);
-        particles[i].draw(ctx);
-      }
+  ctx.globalCompositeOperation = "source-over";
 
-      // Gambar partikel ledakan saat diketuk
-      for (let i = burstParticles.length - 1; i >= 0; i--) {
-        const bp = burstParticles[i];
-        bp.x += bp.vx;
-        bp.y += bp.vy;
-        bp.vx *= 0.94;
-        bp.vy *= 0.94;
-        bp.size *= 0.95;
+  if (burstParticles.length === 0) {
+    spawnHeartBurst(poolX, poolY);
+  }
 
-        ctx.fillStyle = bp.color;
-        ctx.beginPath();
-        ctx.arc(bp.x, bp.y, bp.size, 0, Math.PI * 2);
-        ctx.fill();
+  requestAnimationFrame(animate);
+}
 
-        if (bp.size < 0.25) burstParticles.splice(i, 1);
-      }
+resize();
 
-      requestAnimationFrame(render);
-    }
-    render();
+for (let i = 0; i < FLOAT_COUNT; i++) {
+  const p = new Particle(Math.random() * width, Math.random() * height, "float");
+  floatParticles.push(p);
+}
 
-    /* ========================================================
-       4. INTERAKSI KETUK (LEDAKAN BASS INSTAN)
-       ======================================================== */
-    window.addEventListener('pointerdown', () => {
-      playBassBlast();
-
-      const cx = width / 2;
-      const cyHeart = height / 2 - 25;
-
-      // Hamburkan partikel ledakan tambahan
-      for (let i = 0; i < 160; i++) {
-        const angle = Math.random() * Math.PI * 2;
-        const force = Math.random() * 16 + 4;
-        burstParticles.push({
-          x: cx,
-          y: cyHeart,
-          vx: Math.cos(angle) * force,
-          vy: Math.sin(angle) * force,
-          size: Math.random() * 3 + 1,
-          color: DEEP_BLUES[Math.floor(Math.random() * DEEP_BLUES.length)]
-        });
-      }
-
-      // Partikel hati terpental luas lalu perlahan menyatu kembali
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        const angle = Math.atan2(p.y - cyHeart, p.x - cx) + (Math.random() - 0.5) * 0.4;
-        const force = Math.random() * 220 + 90;
-        p.scatterX = Math.cos(angle) * force;
-        p.scatterY = Math.sin(angle) * force;
-      }
-    });
-  </script>
+spawnHeartBurst(poolX, poolY);
+animate();
+</script>
 </body>
 </html>
