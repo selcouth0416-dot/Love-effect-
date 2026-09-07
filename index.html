@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Electric Particle Heart 3D with Cinematic Audio</title>
-  <meta name="description" content="3D Glowing Particle Heart with Electric Cyan Energy Pool, Vortex Surge, and Cinematic Sound FX" />
+  <title>Cosmic Luxury Particle Heart 3D</title>
+  <meta name="description" content="3D Glowing Multi-Chromatic Particle Heart with Deep Bass Audio FX" />
   
   <!-- Three.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -32,153 +32,40 @@
       position: absolute;
       top: 0;
       left: 0;
-      cursor: grab;
+      cursor: pointer;
     }
 
-    #canvas-container:active {
-      cursor: grabbing;
-    }
-
-    /* Floating UI Overlay */
-    .ui-layer {
+    /* Petunjuk Ketukan Sangat Halus di Bawah (Akan hilang perlahan) */
+    .hint-overlay {
       position: absolute;
-      inset: 0;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
       pointer-events: none;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 24px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255, 120, 180, 0.7);
+      font-family: monospace;
+      animation: pulseText 2.5s infinite ease-in-out;
       z-index: 10;
     }
 
-    .top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      pointer-events: auto;
-    }
-
-    .badge-status {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: rgba(0, 0, 0, 0.65);
-      border: 1px solid rgba(0, 212, 255, 0.25);
-      padding: 8px 18px;
-      border-radius: 9999px;
-      backdrop-filter: blur(10px);
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #00d4ff;
-      box-shadow: 0 0 10px #00d4ff;
-    }
-
-    .status-text {
-      font-size: 13px;
-      letter-spacing: 0.5px;
-      color: #a0f0ff;
-    }
-
-    .action-bar {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      pointer-events: auto;
-    }
-
-    .btn-surge {
-      background: linear-gradient(135deg, #00d4ff 0%, #0059ff 100%);
-      color: #000000;
-      font-weight: 700;
-      font-size: 14px;
-      padding: 12px 30px;
-      border: none;
-      border-radius: 9999px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 0 25px rgba(0, 212, 255, 0.5);
-      transition: all 0.25s ease;
-    }
-
-    .btn-surge:hover {
-      transform: scale(1.05);
-      box-shadow: 0 0 35px rgba(0, 212, 255, 0.8);
-    }
-
-    .btn-surge:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .tip {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.5);
-      font-family: monospace;
-      text-align: center;
-    }
-
-    .btn-icon {
-      background: rgba(0, 0, 0, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #ffffff;
-      padding: 8px 16px;
-      border-radius: 9999px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      cursor: pointer;
-      backdrop-filter: blur(10px);
-      transition: all 0.2s ease;
-    }
-
-    .btn-icon.active {
-      border-color: #00d4ff;
-      color: #00d4ff;
-      background: rgba(0, 50, 80, 0.7);
-      box-shadow: 0 0 15px rgba(0, 212, 255, 0.4);
-    }
-
-    .btn-icon:hover {
-      border-color: #00d4ff;
+    @keyframes pulseText {
+      0%, 100% { opacity: 0.3; transform: translateX(-50%) scale(0.98); }
+      50% { opacity: 0.85; transform: translateX(-50%) scale(1.02); }
     }
   </style>
 </head>
 <body>
 
   <div id="canvas-container"></div>
-
-  <div class="ui-layer" id="ui-layer">
-    <div class="top-bar">
-      <div class="badge-status">
-        <div class="dot" id="status-dot"></div>
-        <span class="status-text" id="status-text">Pulsing Heart • 45,000 Particles</span>
-      </div>
-
-      <button class="btn-icon" id="btn-audio" title="Klik untuk mengaktifkan Suara Sinematik">
-        <span>🔊</span>
-        <span id="audio-label">Sound: OFF</span>
-      </button>
-    </div>
-
-    <div class="action-bar">
-      <button class="btn-surge" id="btn-surge">
-        ⚡ Trigger Vortex Surge
-      </button>
-      <div class="tip">Geser mouse/layar untuk rotasi 3D • Scroll untuk zoom • Tekan Spasi untuk Vortex</div>
-    </div>
-  </div>
+  <div class="hint-overlay" id="hint">✦ Ketuk Layar untuk Memutar & Dentuman Bass ✦</div>
 
   <script>
-    // --- 1. Cinematic Web Audio Procedural Synthesizer ---
+    // =========================================================================
+    // 1. CINEMATIC PROCEDURAL AUDIO SYNTHESIZER (SUPER NGEBAS & MEWAH)
+    // =========================================================================
     class SoundEngine {
       constructor() {
         this.ctx = null;
@@ -198,40 +85,204 @@
         return this.ctx;
       }
 
-      toggle() {
-        this.enabled = !this.enabled;
-        const btn = document.getElementById('btn-audio');
-        const label = document.getElementById('audio-label');
-        if (this.enabled) {
-          this.initCtx();
+      unlock() {
+        this.enabled = true;
+        const ctx = this.initCtx();
+        if (ctx && !this.ambientGain) {
           this.startAmbient();
-          this.playHeartbeat();
-          btn.classList.add('active');
-          label.innerText = 'Sound: ON';
-        } else {
-          this.stopAmbient();
-          btn.classList.remove('active');
-          label.innerText = 'Sound: OFF';
         }
       }
 
-      // Detak Jantung Ganda Realistis (Lub-Dub)
-      playHeartbeat() {
-        if (!this.enabled) return;
+      // Dentuman Sub-Bass 808 Saat Layar Diketuk / Dipencet
+      playTapBassDrop() {
+        this.unlock();
         const ctx = this.initCtx();
         if (!ctx) return;
         const now = ctx.currentTime;
-        // Lub (pertama, dalam dan hangat)
-        this.thump(now, 58, 30, 0.22, 0.45);
-        // Dub (kedua, sedikit lebih tinggi)
-        this.thump(now + 0.16, 68, 34, 0.18, 0.32);
+
+        // Sub-bass layer 1: 56Hz meluncur turun ke 24Hz
+        const subOsc = ctx.createOscillator();
+        const subGain = ctx.createGain();
+        subOsc.type = 'sine';
+        subOsc.frequency.setValueAtTime(56, now);
+        subOsc.frequency.exponentialRampToValueAtTime(24, now + 0.55);
+
+        subGain.gain.setValueAtTime(0.85, now);
+        subGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+
+        const subFilter = ctx.createBiquadFilter();
+        subFilter.type = 'lowpass';
+        subFilter.frequency.setValueAtTime(110, now);
+        subFilter.frequency.exponentialRampToValueAtTime(45, now + 0.55);
+
+        subOsc.connect(subFilter);
+        subFilter.connect(subGain);
+        subGain.connect(ctx.destination);
+        subOsc.start(now);
+        subOsc.stop(now + 0.65);
+
+        // Punch body layer 2
+        const midOsc = ctx.createOscillator();
+        const midGain = ctx.createGain();
+        midOsc.type = 'triangle';
+        midOsc.frequency.setValueAtTime(92, now);
+        midOsc.frequency.exponentialRampToValueAtTime(36, now + 0.35);
+
+        midGain.gain.setValueAtTime(0.48, now);
+        midGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+        midOsc.connect(midGain);
+        midGain.connect(ctx.destination);
+        midOsc.start(now);
+        midOsc.stop(now + 0.45);
+      }
+
+      // Bass Gemuruh & Putaran Kosmik Saat Berputar (Muter Panjang)
+      playVortexSurge() {
+        this.unlock();
+        const ctx = this.initCtx();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const duration = 7.0;
+
+        // 1. Sub-Bass Drone Riser
+        const subDrone = ctx.createOscillator();
+        const subGain = ctx.createGain();
+        subDrone.type = 'sine';
+        subDrone.frequency.setValueAtTime(38, now);
+        subDrone.frequency.exponentialRampToValueAtTime(72, now + 2.5);
+        subDrone.frequency.exponentialRampToValueAtTime(94, now + 4.8);
+        subDrone.frequency.exponentialRampToValueAtTime(32, now + duration);
+
+        subGain.gain.setValueAtTime(0.001, now);
+        subGain.gain.linearRampToValueAtTime(0.70, now + 1.2);
+        subGain.gain.linearRampToValueAtTime(0.62, now + 4.8);
+        subGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        const bassFilter = ctx.createBiquadFilter();
+        bassFilter.type = 'lowpass';
+        bassFilter.Q.value = 4.2;
+        bassFilter.frequency.setValueAtTime(85, now);
+        bassFilter.frequency.linearRampToValueAtTime(240, now + 2.8);
+        bassFilter.frequency.linearRampToValueAtTime(95, now + duration);
+
+        subDrone.connect(bassFilter);
+        bassFilter.connect(subGain);
+        subGain.connect(ctx.destination);
+        subDrone.start(now);
+        subDrone.stop(now + duration);
+
+        // 2. Sapuan Angin Kosmik Stereo
+        const bufferSize = Math.floor(ctx.sampleRate * 6.0);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          data[i] = (b0 + b1 + b2) * 0.45;
+        }
+
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.Q.value = 5.0;
+        noiseFilter.frequency.setValueAtTime(160, now);
+        noiseFilter.frequency.exponentialRampToValueAtTime(1600, now + 2.5);
+        noiseFilter.frequency.exponentialRampToValueAtTime(2400, now + 4.2);
+        noiseFilter.frequency.exponentialRampToValueAtTime(250, now + 6.0);
+
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.001, now);
+        noiseGain.gain.linearRampToValueAtTime(0.40, now + 1.8);
+        noiseGain.gain.linearRampToValueAtTime(0.35, now + 4.2);
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 6.2);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        noise.start(now);
+        noise.stop(now + 6.3);
+
+        // 3. Denting Kristal Mewah (Celestial Chimes)
+        const chimeFreqs = [528, 660, 792, 1056, 1320, 1584, 2112];
+        chimeFreqs.forEach((freq, idx) => {
+          const cTime = now + 1.0 + idx * 0.45;
+          const cOsc = ctx.createOscillator();
+          const cGain = ctx.createGain();
+
+          cOsc.type = 'sine';
+          cOsc.frequency.setValueAtTime(freq, cTime);
+          cOsc.frequency.exponentialRampToValueAtTime(freq * 1.25, cTime + 0.8);
+
+          cGain.gain.setValueAtTime(0.001, cTime);
+          cGain.gain.linearRampToValueAtTime(0.045, cTime + 0.06);
+          cGain.gain.exponentialRampToValueAtTime(0.0001, cTime + 0.9);
+
+          cOsc.connect(cGain);
+          cGain.connect(ctx.destination);
+          cOsc.start(cTime);
+          cOsc.stop(cTime + 0.95);
+        });
+      }
+
+      // Ledakan Bass Berat Saat Partikel Mengumpul Kembali Menjadi Hati
+      playGatheringBassImpact() {
+        if (!this.ctx) return;
+        const ctx = this.ctx;
+        const now = ctx.currentTime;
+
+        // Sub-Bass Shockwave Impact: 46Hz turun ke 20Hz
+        const impactOsc = ctx.createOscillator();
+        const impactGain = ctx.createGain();
+        impactOsc.type = 'sine';
+        impactOsc.frequency.setValueAtTime(46, now);
+        impactOsc.frequency.exponentialRampToValueAtTime(20, now + 1.2);
+
+        impactGain.gain.setValueAtTime(0.90, now);
+        impactGain.gain.exponentialRampToValueAtTime(0.0001, now + 1.35);
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(120, now);
+        filter.frequency.exponentialRampToValueAtTime(35, now + 1.15);
+
+        impactOsc.connect(filter);
+        filter.connect(impactGain);
+        impactGain.connect(ctx.destination);
+        impactOsc.start(now);
+        impactOsc.stop(now + 1.4);
+
+        // Chord Harmonik Lembut Penutup (432Hz)
+        [216, 324, 432, 540].forEach((freq) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          gain.gain.setValueAtTime(0.04, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 2.3);
+        });
+      }
+
+      // Detak Jantung Istirahat (Lub-Dub Bass)
+      playHeartbeat() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        this.thump(now, 52, 26, 0.22, 0.42);
+        this.thump(now + 0.16, 62, 30, 0.18, 0.30);
       }
 
       thump(time, startFreq, endFreq, dur, vol) {
-        if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-
         osc.type = 'sine';
         osc.frequency.setValueAtTime(startFreq, time);
         osc.frequency.exponentialRampToValueAtTime(endFreq, time + dur);
@@ -239,11 +290,10 @@
         gain.gain.setValueAtTime(vol, time);
         gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
 
-        // Lowpass resonance
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(140, time);
-        filter.frequency.exponentialRampToValueAtTime(50, time + dur);
+        filter.frequency.setValueAtTime(120, time);
+        filter.frequency.exponentialRampToValueAtTime(45, time + dur);
 
         osc.connect(filter);
         filter.connect(gain);
@@ -253,119 +303,11 @@
         osc.stop(time + dur);
       }
 
-      // Efek Suara Pusaran Listrik (Vortex Surge)
-      playVortexSurge() {
-        if (!this.enabled) return;
-        const ctx = this.initCtx();
-        if (!ctx) return;
-        const now = ctx.currentTime;
-        const duration = 4.2;
-
-        // 1. Sub-bass riser
-        const subOsc = ctx.createOscillator();
-        const subGain = ctx.createGain();
-        subOsc.type = 'sine';
-        subOsc.frequency.setValueAtTime(42, now);
-        subOsc.frequency.exponentialRampToValueAtTime(95, now + 1.2);
-        subOsc.frequency.exponentialRampToValueAtTime(160, now + 2.4);
-        subOsc.frequency.exponentialRampToValueAtTime(40, now + duration);
-
-        subGain.gain.setValueAtTime(0.001, now);
-        subGain.gain.linearRampToValueAtTime(0.38, now + 1.2);
-        subGain.gain.linearRampToValueAtTime(0.35, now + 2.8);
-        subGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-        subOsc.connect(subGain);
-        subGain.connect(ctx.destination);
-        subOsc.start(now);
-        subOsc.stop(now + duration);
-
-        // 2. Swirling Cosmic Air Rush
-        const bufferSize = ctx.sampleRate * 3.5;
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        let b0 = 0, b1 = 0, b2 = 0;
-        for (let i = 0; i < bufferSize; i++) {
-          const white = Math.random() * 2 - 1;
-          b0 = 0.99886 * b0 + white * 0.0555179;
-          b1 = 0.99332 * b1 + white * 0.0750759;
-          b2 = 0.96900 * b2 + white * 0.1538520;
-          data[i] = (b0 + b1 + b2) * 0.4;
-        }
-
-        const noise = ctx.createBufferSource();
-        noise.buffer = buffer;
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.Q.value = 5.5;
-        filter.frequency.setValueAtTime(200, now);
-        filter.frequency.exponentialRampToValueAtTime(1600, now + 1.6);
-        filter.frequency.exponentialRampToValueAtTime(2400, now + 2.4);
-        filter.frequency.exponentialRampToValueAtTime(280, now + 3.5);
-
-        const noiseGain = ctx.createGain();
-        noiseGain.gain.setValueAtTime(0.001, now);
-        noiseGain.gain.linearRampToValueAtTime(0.28, now + 1.4);
-        noiseGain.gain.linearRampToValueAtTime(0.25, now + 2.4);
-        noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.5);
-
-        noise.connect(filter);
-        filter.connect(noiseGain);
-        noiseGain.connect(ctx.destination);
-        noise.start(now);
-        noise.stop(now + 3.5);
-
-        // 3. Stardust Crystal Chimes
-        const freqs = [528, 660, 792, 1056, 1320, 1584];
-        freqs.forEach((freq, idx) => {
-          const chimeTime = now + 0.5 + idx * 0.35;
-          const chimeOsc = ctx.createOscillator();
-          const chimeGain = ctx.createGain();
-
-          chimeOsc.type = 'sine';
-          chimeOsc.frequency.setValueAtTime(freq, chimeTime);
-          chimeOsc.frequency.exponentialRampToValueAtTime(freq * 1.5, chimeTime + 0.6);
-
-          chimeGain.gain.setValueAtTime(0.001, chimeTime);
-          chimeGain.gain.linearRampToValueAtTime(0.04, chimeTime + 0.05);
-          chimeGain.gain.exponentialRampToValueAtTime(0.0001, chimeTime + 0.6);
-
-          chimeOsc.connect(chimeGain);
-          chimeGain.connect(ctx.destination);
-          chimeOsc.start(chimeTime);
-          chimeOsc.stop(chimeTime + 0.6);
-        });
-
-        // 4. Reform Chime
-        setTimeout(() => {
-          if (this.enabled && this.ctx) this.playReformChime();
-        }, 3600);
-      }
-
-      playReformChime() {
-        if (!this.enabled || !this.ctx) return;
-        const now = this.ctx.currentTime;
-        [432, 540, 648].forEach(freq => {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now);
-          gain.gain.setValueAtTime(0.035, now);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start(now);
-          osc.stop(now + 1.8);
-        });
-      }
-
-      // Background Ambient Drone (432Hz Chord)
       startAmbient() {
         if (!this.ctx) return;
         this.ambientGain = this.ctx.createGain();
         this.ambientGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
-        this.ambientGain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 2.0);
+        this.ambientGain.gain.linearRampToValueAtTime(0.035, this.ctx.currentTime + 2.0);
         this.ambientGain.connect(this.ctx.destination);
 
         const baseFreqs = [108, 216, 324];
@@ -386,22 +328,13 @@
           return osc;
         });
       }
-
-      stopAmbient() {
-        if (this.ambientGain && this.ctx) {
-          this.ambientGain.gain.linearRampToValueAtTime(0.0001, this.ctx.currentTime + 0.8);
-          setTimeout(() => {
-            this.ambientOscs.forEach(o => { try { o.stop(); o.disconnect(); } catch(e){} });
-            this.ambientOscs = [];
-          }, 900);
-        }
-      }
     }
 
     const sound = new SoundEngine();
-    document.getElementById('btn-audio').addEventListener('click', () => sound.toggle());
 
-    // --- 2. Three.js Scene Setup & Geometry ---
+    // =========================================================================
+    // 2. THREE.JS PARTICLE SCENE DENGAN WARNA MULTI-KROMATIK MEWAH
+    // =========================================================================
     function getHeartPoint(t) {
       const sinT = Math.sin(t);
       const cosT = Math.cos(t);
@@ -412,7 +345,7 @@
 
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.008);
+    scene.fog = new THREE.FogExp2(0x000000, 0.007);
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 0, 38);
@@ -423,7 +356,7 @@
     renderer.setClearColor(0x000000, 1);
     container.appendChild(renderer.domElement);
 
-    // --- 45,000 Heart Particles ---
+    // 45.000 Partikel Multi-Kromatik (Rose Gold, Cyan Aurora, Electric Violet, Diamond)
     const PARTICLE_COUNT = 45000;
     const scale = 0.60;
     const yCenterOffset = 2.4;
@@ -434,10 +367,12 @@
     const phases = new Float32Array(PARTICLE_COUNT);
     const vortexFactors = new Float32Array(PARTICLE_COUNT * 3);
 
-    const primaryCol = new THREE.Color('#00d4ff');     // Electric cyan
-    const secondaryCol = new THREE.Color('#0a389c');   // Deep sapphire blue
-    const deepMidnight = new THREE.Color('#031849');   // Midnight blue
-    const coreCol = new THREE.Color('#ffffff');        // Diamond sparkle
+    // Palet Warna Mewah
+    const colRoseGold = new THREE.Color('#ff2a8d');   // Radiant Rose Magenta
+    const colAuroraCyan = new THREE.Color('#00f0ff'); // Electric Aurora Cyan
+    const colViolet = new THREE.Color('#8b2bf5');     // Royal Electric Violet
+    const colGoldDust = new THREE.Color('#ffd166');   // Golden Starlight Embers
+    const colDiamond = new THREE.Color('#ffffff');    // Diamond Sparkles
 
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const i3 = i * 3;
@@ -470,19 +405,24 @@
       positions[i3 + 1] = y2D;
       positions[i3 + 2] = z;
 
+      // Gradasi Multi-Warna Spektrum Mewah
       const pCol = new THREE.Color();
-      const whiteChance = Math.random();
-      if (whiteChance < 0.12) {
-        pCol.copy(coreCol);
-        sizes[i] = 1.8 + Math.random() * 1.5;
-      } else if (whiteChance < 0.32) {
-        pCol.lerpColors(primaryCol, coreCol, 0.25);
-        sizes[i] = 1.2 + Math.random() * 1.2;
-      } else if (isShell) {
-        pCol.lerpColors(secondaryCol, primaryCol, Math.random() * 0.7);
+      const cPick = Math.random();
+
+      if (cPick < 0.15) {
+        pCol.copy(colDiamond);
+        sizes[i] = 2.0 + Math.random() * 1.5;
+      } else if (cPick < 0.38) {
+        // Bagian atas memancarkan Rose Gold ke Golden Ember
+        pCol.lerpColors(colRoseGold, colGoldDust, Math.random() * 0.8);
+        sizes[i] = 1.2 + Math.random() * 1.3;
+      } else if (cPick < 0.72) {
+        // Cangkang transisi antara Rose Gold dan Aurora Cyan
+        pCol.lerpColors(colRoseGold, colAuroraCyan, Math.random());
         sizes[i] = 1.0 + Math.random() * 1.2;
       } else {
-        pCol.lerpColors(secondaryCol, deepMidnight, Math.random() * 0.6);
+        // Inti dalam elektrik violet mistis
+        pCol.lerpColors(colViolet, colAuroraCyan, Math.random() * 0.7);
         sizes[i] = 0.9 + Math.random() * 1.0;
       }
 
@@ -514,8 +454,7 @@
       uTime: { value: 0 },
       uSurgeProgress: { value: 0 },
       uHeartbeat: { value: 0 },
-      uBloomIntensity: { value: 0.9 },
-      uPrimaryColor: { value: primaryCol }
+      uBloomIntensity: { value: 1.05 }
     };
 
     const heartMat = new THREE.ShaderMaterial({
@@ -530,7 +469,6 @@
         uniform float uSurgeProgress;
         uniform float uHeartbeat;
         uniform float uBloomIntensity;
-        uniform vec3 uPrimaryColor;
 
         varying vec3 vColor;
         varying float vAlpha;
@@ -539,51 +477,52 @@
         void main() {
           vec3 pos = basePosition;
 
-          // Heartbeat pulse
+          // Detak Jantung
           vec3 centerOffset = pos - vec3(0.0, 2.0, 0.0);
           pos += normalize(centerOffset) * uHeartbeat * 0.7;
 
-          // Shimmer
-          pos.x += sin(uTime * 2.0 + pPhase) * 0.07;
-          pos.y += cos(uTime * 1.6 + pPhase) * 0.05;
-          pos.z += sin(uTime * 2.2 + pPhase) * 0.07;
+          // Getaran Halus
+          pos.x += sin(uTime * 2.0 + pPhase) * 0.08;
+          pos.y += cos(uTime * 1.6 + pPhase) * 0.06;
+          pos.z += sin(uTime * 2.2 + pPhase) * 0.08;
 
-          // Vortex Surge
+          // Vortex Panjang yang Memutar & Menyebar
           float vuln = pVortexFactor.x;
           if (uSurgeProgress > 0.001 && vuln > 0.05) {
             float surgePower = sin(uSurgeProgress * 3.14159265);
-            float localPower = pow(surgePower, 1.2) * vuln;
+            float localPower = pow(surgePower, 1.25) * vuln;
 
-            pos.y += localPower * 20.0 * pVortexFactor.y;
+            pos.y += localPower * 22.0 * pVortexFactor.y;
 
-            float swirlAngle = (localPower * 9.0 + uTime * 3.5) * pVortexFactor.z;
+            float swirlAngle = (localPower * 10.5 + uTime * 3.8) * pVortexFactor.z;
             float curRadius = length(pos.xz);
-            float newRadius = curRadius * (1.0 + localPower * 0.8) + localPower * 1.8;
+            float newRadius = curRadius * (1.0 + localPower * 0.95) + localPower * 2.0;
             float totalAngle = atan(pos.z, pos.x) + swirlAngle;
 
             pos.x = cos(totalAngle) * newRadius;
             pos.z = sin(totalAngle) * newRadius;
 
-            pos.x += sin(uTime * 28.0 + pos.y * 2.0) * localPower * 0.6;
-            pos.z += cos(uTime * 25.0 + pos.y * 2.0) * localPower * 0.6;
+            pos.x += sin(uTime * 30.0 + pos.y * 2.0) * localPower * 0.65;
+            pos.z += cos(uTime * 26.0 + pos.y * 2.0) * localPower * 0.65;
           }
 
           vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
           gl_Position = projectionMatrix * mvPosition;
 
-          float basePointSize = pSize * (200.0 / -mvPosition.z);
-          float surgeBoost = 1.0 + sin(uSurgeProgress * 3.14159265) * 0.6 * vuln;
-          gl_PointSize = clamp(basePointSize * (1.0 + uHeartbeat * 0.2) * surgeBoost, 1.0, 14.0);
+          float basePointSize = pSize * (205.0 / -mvPosition.z);
+          float surgeBoost = 1.0 + sin(uSurgeProgress * 3.14159265) * 0.75 * vuln;
+          gl_PointSize = clamp(basePointSize * (1.0 + uHeartbeat * 0.2) * surgeBoost, 1.0, 15.0);
 
           vTwinkle = sin(uTime * 3.2 + pPhase * 2.5) * 0.5 + 0.5;
 
+          // Perubahan Warna Aurora Saat Memutar
           vec3 finalCol = pColor;
           if (uSurgeProgress > 0.001) {
             float surgeGlow = sin(uSurgeProgress * 3.14159265) * vuln;
-            finalCol = mix(finalCol, uPrimaryColor, surgeGlow * 0.75);
+            finalCol = mix(finalCol, vec3(1.0, 0.25, 0.65), surgeGlow * 0.65);
           }
           vColor = finalCol;
-          vAlpha = clamp(0.7 + vTwinkle * 0.3, 0.0, 1.0);
+          vAlpha = clamp(0.75 + vTwinkle * 0.25, 0.0, 1.0);
         }
       `,
       fragmentShader: `
@@ -598,10 +537,10 @@
           if (dist > 0.5) discard;
 
           float core = smoothstep(0.18, 0.0, dist);
-          float halo = exp(-dist * 12.0);
+          float halo = exp(-dist * 11.5);
 
-          float lightEnergy = (core * 2.2 + halo * 0.8) * uBloomIntensity;
-          vec3 outColor = mix(vColor, vec3(1.0), core * 0.85);
+          float lightEnergy = (core * 2.4 + halo * 0.85) * uBloomIntensity;
+          vec3 outColor = mix(vColor, vec3(1.0), core * 0.88);
           gl_FragColor = vec4(outColor * lightEnergy, halo * vAlpha);
         }
       `,
@@ -614,7 +553,7 @@
     const heartPoints = new THREE.Points(heartGeo, heartMat);
     scene.add(heartPoints);
 
-    // --- Energy Puddle ---
+    // Kolam Energi Bawah (Rose-Gold & Cyan Pedestal)
     const poolGeo = new THREE.PlaneGeometry(16, 16, 32, 32);
     poolGeo.rotateX(-Math.PI / 2);
 
@@ -653,7 +592,7 @@
           float surgeFlare = sin(uSurgeProgress * 3.14159265) * 1.5;
           float energy = (brightCore * 3.2 + midGlow * 2.0 + outerHalo * 0.8 + swirl * 0.25 * midGlow) * (1.0 + surgeFlare + uHeartbeat * 0.3);
 
-          vec3 col = mix(vec3(0.0, 0.9, 1.0), vec3(0.0, 0.4, 0.9), d * 1.8);
+          vec3 col = mix(vec3(1.0, 0.2, 0.6), vec3(0.0, 0.7, 1.0), d * 1.8);
           col = mix(col, vec3(1.0), brightCore * 0.9);
 
           gl_FragColor = vec4(col * energy, clamp((midGlow * 1.4 + brightCore) * (1.0 - d * 2.0), 0.0, 1.0));
@@ -670,18 +609,18 @@
     poolMesh.position.set(0, -11.6, 0);
     scene.add(poolMesh);
 
-    // --- 26 Tendril Ribbons ---
-    const numTendrils = 26;
+    // 30 Tendril Pita Plasma Spiral
+    const numTendrils = 30;
     const pointsPerTendril = 64;
     const tendrilLines = [];
     const tendrilConfigs = [];
 
     for (let t = 0; t < numTendrils; t++) {
       const baseAngle = (t / numTendrils) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-      const speed = 4.0 + Math.random() * 3.5;
-      const radiusScale = 0.5 + Math.random() * 0.8;
+      const speed = 4.2 + Math.random() * 3.8;
+      const radiusScale = 0.55 + Math.random() * 0.85;
       const heightOffset = (Math.random() - 0.5) * 4.0;
-      const swirlTension = 1.2 + Math.random() * 1.5;
+      const swirlTension = 1.3 + Math.random() * 1.6;
 
       const pts = [];
       const cols = [];
@@ -689,9 +628,9 @@
         pts.push(new THREE.Vector3(0, -15, 0));
         const pNorm = p / (pointsPerTendril - 1);
         const c = new THREE.Color();
-        if (pNorm > 0.8) c.lerpColors(primaryCol, coreCol, (pNorm - 0.8) / 0.2);
-        else if (pNorm > 0.35) c.copy(primaryCol);
-        else c.lerpColors(secondaryCol, primaryCol, pNorm / 0.35);
+        if (pNorm > 0.8) c.lerpColors(colAuroraCyan, colDiamond, (pNorm - 0.8) / 0.2);
+        else if (pNorm > 0.35) c.lerpColors(colRoseGold, colAuroraCyan, (pNorm - 0.35) / 0.45);
+        else c.lerpColors(colViolet, colRoseGold, pNorm / 0.35);
         cols.push(c.r, c.g, c.b);
       }
 
@@ -711,7 +650,9 @@
       tendrilConfigs.push({ baseAngle, speed, radiusScale, heightOffset, swirlTension });
     }
 
-    // --- 3. Animation State & Loop ---
+    // =========================================================================
+    // 3. ANIMASI PANJANG & INTERAKSI KETUKAN (TAP TO SURGE)
+    // =========================================================================
     const state = {
       phase: 'idle',
       phaseTime: 0,
@@ -720,32 +661,27 @@
       rotation: { x: 0.05, y: 0, targetX: 0.05, targetY: 0 },
       isDragging: false,
       dragStart: { x: 0, y: 0 },
+      pointerDownTime: 0,
       zoom: 38
     };
 
+    // Fungsi Memicu Vortex & Suara Bass
     function triggerVortex() {
-      if (state.phase === 'vortex') return;
+      if (state.phase === 'vortex' || state.phase === 'charging') return;
       state.phase = 'vortex';
       state.phaseTime = 0;
-      sound.playVortexSurge();
-      document.getElementById('btn-surge').disabled = true;
-      document.getElementById('status-text').innerText = 'Vortex Surging...';
+      sound.playTapBassDrop();  // Dentuman sub-bass 808
+      sound.playVortexSurge();   // Gemuruh & putaran panjang
     }
 
-    document.getElementById('btn-surge').addEventListener('click', triggerVortex);
-    window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
-        e.preventDefault();
-        triggerVortex();
-      }
-    });
-
-    // Mouse / Touch Drag
-    window.addEventListener('mousedown', (e) => {
+    // Interaksi: Cukup Diketuk / Dipencet di Layar
+    window.addEventListener('pointerdown', (e) => {
       state.isDragging = true;
       state.dragStart = { x: e.clientX, y: e.clientY };
+      state.pointerDownTime = performance.now();
     });
-    window.addEventListener('mousemove', (e) => {
+
+    window.addEventListener('pointermove', (e) => {
       if (!state.isDragging) return;
       const dx = e.clientX - state.dragStart.x;
       const dy = e.clientY - state.dragStart.y;
@@ -753,24 +689,22 @@
       state.rotation.targetX = Math.max(-0.6, Math.min(0.6, state.rotation.targetX + dy * 0.006));
       state.dragStart = { x: e.clientX, y: e.clientY };
     });
-    window.addEventListener('mouseup', () => state.isDragging = false);
+
+    window.addEventListener('pointerup', (e) => {
+      const clickDuration = performance.now() - state.pointerDownTime;
+      state.isDragging = false;
+
+      // Jika diketuk (< 300ms), picu animasi & dentuman suara!
+      if (clickDuration < 300) {
+        triggerVortex();
+        const hint = document.getElementById('hint');
+        if (hint) hint.style.display = 'none';
+      }
+    });
+
     window.addEventListener('wheel', (e) => {
       state.zoom = Math.max(22, Math.min(55, state.zoom + e.deltaY * 0.03));
     });
-
-    window.addEventListener('touchstart', (e) => {
-      state.isDragging = true;
-      state.dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    });
-    window.addEventListener('touchmove', (e) => {
-      if (!state.isDragging) return;
-      const dx = e.touches[0].clientX - state.dragStart.x;
-      const dy = e.touches[0].clientY - state.dragStart.y;
-      state.rotation.targetY += dx * 0.008;
-      state.rotation.targetX = Math.max(-0.6, Math.min(0.6, state.rotation.targetX + dy * 0.006));
-      state.dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    });
-    window.addEventListener('touchend', () => state.isDragging = false);
 
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
@@ -789,32 +723,32 @@
       state.phaseTime += delta;
       state.cycleTimer += delta;
 
-      // Auto cycle setiap 11s
-      if (state.cycleTimer >= 11.0) {
+      // Auto cycle setiap 14 detik jika tidak diketuk
+      if (state.cycleTimer >= 14.0) {
         state.cycleTimer = 0;
         triggerVortex();
       }
 
+      // Animasi Panjang Sinematik (~11.5 Detik)
       if (state.phase === 'vortex') {
-        const dur = 4.2;
-        state.surgeProgress = Math.min(1.0, state.phaseTime / dur);
+        const vortexDuration = 6.8; // Durasi putaran panjang
+        state.surgeProgress = Math.min(1.0, state.phaseTime / vortexDuration);
         if (state.surgeProgress >= 1.0) {
           state.phase = 'reforming';
           state.phaseTime = 0;
+          sound.playGatheringBassImpact(); // Ledakan bass saat partikel mulai mengumpul kembali!
         }
       } else if (state.phase === 'reforming') {
-        const dur = 2.0;
-        state.surgeProgress = 1.0 - Math.min(1.0, state.phaseTime / dur);
+        const reformDuration = 3.6; // Gerakan gravitasi kembali membentuk hati
+        state.surgeProgress = 1.0 - Math.min(1.0, state.phaseTime / reformDuration);
         if (state.surgeProgress <= 0.0) {
           state.phase = 'idle';
           state.phaseTime = 0;
           state.surgeProgress = 0;
-          document.getElementById('btn-surge').disabled = false;
-          document.getElementById('status-text').innerText = 'Pulsing Heart • 45,000 Particles';
         }
       }
 
-      // Heartbeat pulse
+      // Detak Jantung
       const beatCycle = (elapsed * 0.9) % 1.0;
       let beat = 0;
       if (beatCycle < 0.12) beat = Math.sin((beatCycle / 0.12) * Math.PI) * 0.085;
@@ -833,9 +767,9 @@
       poolUniforms.uSurgeProgress.value = state.surgeProgress;
       poolUniforms.uHeartbeat.value = beat;
 
-      // Animate tendrils
+      // Animasi Pita Plasma Spiral
       const surgeVal = state.surgeProgress;
-      const tendrilOp = Math.pow(Math.sin(surgeVal * Math.PI), 1.3);
+      const tendrilOp = Math.pow(Math.sin(surgeVal * Math.PI), 1.25);
 
       for (let t = 0; t < numTendrils; t++) {
         const line = tendrilLines[t];
@@ -844,14 +778,14 @@
 
         if (surgeVal > 0.005) {
           const posArr = line.geometry.attributes.position.array;
-          const rotSpeed = cfg.speed * elapsed * 2.6;
-          const climb = Math.min(1.0, surgeVal * 1.5);
+          const rotSpeed = cfg.speed * elapsed * 2.8;
+          const climb = Math.min(1.0, surgeVal * 1.55);
 
           for (let p = 0; p < pointsPerTendril; p++) {
             const pNorm = p / (pointsPerTendril - 1);
-            const targetY = -11.6 + pNorm * climb * (23.5 + cfg.heightOffset);
-            const radius = (Math.sin(pNorm * Math.PI) * 5.4 + 0.9) * cfg.radiusScale;
-            const angle = cfg.baseAngle + rotSpeed + pNorm * (8.5 * cfg.swirlTension);
+            const targetY = -11.6 + pNorm * climb * (24.0 + cfg.heightOffset);
+            const radius = (Math.sin(pNorm * Math.PI) * 5.6 + 0.95) * cfg.radiusScale;
+            const angle = cfg.baseAngle + rotSpeed + pNorm * (8.8 * cfg.swirlTension);
 
             const p3 = p * 3;
             posArr[p3] = Math.cos(angle) * radius + Math.sin(elapsed * 28.0 + p) * 0.15 * surgeVal;
@@ -862,7 +796,7 @@
         }
       }
 
-      // Smooth camera rotation
+      // Rotasi 3D Halus
       state.rotation.x += (state.rotation.targetX - state.rotation.x) * 0.08;
       state.rotation.y += (state.rotation.targetY - state.rotation.y) * 0.08;
 
